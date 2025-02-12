@@ -1,11 +1,16 @@
 /* eslint-disable no-undef */
-const supabase = require("../supabase");
+const supabase = require("../config/supabase");
 
 /**
  * User Sign-up
  */
 const signUp = async (req, res) => {
   const { email, password, name, location, userType, specialty } = req.body;
+
+  // Validate required fields
+  if (!email || !password || !name || !location || !userType) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
 
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -16,7 +21,7 @@ const signUp = async (req, res) => {
           name,
           location,
           userType,
-          specialty: userType === "specialist" ? specialty : null,
+          specialty: userType === "specialist" ? specialty || null : null,
         },
       },
     });
@@ -25,7 +30,8 @@ const signUp = async (req, res) => {
 
     res.status(201).json({ message: "User registered successfully!", user: data.user });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Sign-up Error:", error.message);
+    res.status(400).json({ error: "Registration failed. Please try again." });
   }
 };
 
@@ -34,6 +40,10 @@ const signUp = async (req, res) => {
  */
 const login = async (req, res) => {
   const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
 
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -45,7 +55,8 @@ const login = async (req, res) => {
 
     res.status(200).json({ message: "Login successful!", user: data.user });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Login Error:", error.message);
+    res.status(400).json({ error: "Invalid credentials. Please try again." });
   }
 };
 
