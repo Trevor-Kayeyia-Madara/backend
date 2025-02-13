@@ -8,66 +8,61 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
   },
 });
 
-/**
- * User Sign-up
- */
-const signUp = async (req, res) => {
-  const { email, password, name, location, userType, specialty } = req.body;
-
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-          location,
-          userType,
-          specialty: userType === "specialist" ? specialty || null : null,
-        },
-      },
-    });
-
-    if (error) throw error;
-
-    res.status(201).json({ message: "User registered successfully!", user: data.user });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+export const signUp = async (email, password) => {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  return { data, error };
 };
 
-/**
- * User Login
- */
-const login = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-
-    res.status(200).json({ message: "Login successful!", user: data.user });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+export const signInWithPassword = async (email, password) => {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { data, error };
 };
 
-/**
- * User Logout
- */
-const logout = async (req, res) => {
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-
-    res.status(200).json({ message: "User logged out successfully!" });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
+export const signInWithOtp = async (email) => {
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: 'https://example.com/welcome' },
+  });
+  return { data, error };
 };
 
-module.exports = { signUp, login, logout };
+export const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  return { error };
+};
+
+export const getSession = async () => {
+  const { data, error } = await supabase.auth.getSession();
+  return { data, error };
+};
+
+export const authStateListener = () => {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log(event, session);
+
+    switch (event) {
+      case 'INITIAL_SESSION':
+        // Handle initial session
+        break;
+      case 'SIGNED_IN':
+        // Handle sign-in event
+        break;
+      case 'SIGNED_OUT':
+        // Handle sign-out event
+        break;
+      case 'PASSWORD_RECOVERY':
+        // Handle password recovery event
+        break;
+      case 'TOKEN_REFRESHED':
+        // Handle token refreshed event
+        break;
+      case 'USER_UPDATED':
+        // Handle user updated event
+        break;
+      default:
+        break;
+    }
+  });
+
+  return () => data.subscription.unsubscribe(); // Call this function to unsubscribe
+};
