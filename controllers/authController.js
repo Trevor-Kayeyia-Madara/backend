@@ -18,14 +18,6 @@ export const signInWithPassword = async (email, password) => {
   return { data, error };
 };
 
-export const signInWithOtp = async (email) => {
-  const { data, error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: 'https://example.com/welcome' },
-  });
-  return { data, error };
-};
-
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
   return { error };
