@@ -1,11 +1,12 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const authRoutes = require('./routes/authRoutes');
-const specialistRoutes = require('./routes/specialistRoutes');
-const bookingRoutes = require('./routes/bookingRoutes'); // 🔹 Import Booking Routes
-const supabase = require('./config/supabase');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import authRoutes from './routes/authRoutes.js';
+import specialistRoutes from './routes/specialistRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js'; // 🔹 Import Booking Routes
+import supabase from './config/supabase.js';
+import appointmentsRoutes from './routes/appointmentsRoutes.js';
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(bodyParser.json());
 
 // 🔹 Routes
 app.use('/api/auth', authRoutes); // Authentication
+app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/specialists', specialistRoutes); // Specialist Profile Setup
 app.use('/api/bookings', bookingRoutes); // Booking & Scheduling
 

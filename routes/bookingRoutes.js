@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import supabase from '../config/supabase.js';
+import authenticateUser from '../middleware/authMiddleware.js';
+
 const router = express.Router();
-const supabase = require('../config/supabase');
-const authenticateUser = require('../middleware/authMiddleware');
 
 // 🔹 Create a New Booking (Customer only)
 router.post('/book', authenticateUser, async (req, res) => {
@@ -30,6 +31,7 @@ router.post('/book', authenticateUser, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 // 🔹 Accept or Reject a Booking (Specialist only)
 router.put('/update-booking/:booking_id', authenticateUser, async (req, res) => {
     const { booking_id } = req.params;
@@ -60,6 +62,7 @@ router.put('/update-booking/:booking_id', authenticateUser, async (req, res) => 
         res.status(500).json({ error: error.message });
     }
 });
+
 // 🔹 Get All Bookings for a Specialist
 router.get('/specialist-bookings', authenticateUser, async (req, res) => {
     try {
@@ -81,6 +84,7 @@ router.get('/specialist-bookings', authenticateUser, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 // 🔹 Get All Bookings for a Customer
 router.get('/customer-bookings', authenticateUser, async (req, res) => {
     try {
@@ -102,3 +106,5 @@ router.get('/customer-bookings', authenticateUser, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+export default router; // ✅ Correct ES Module export

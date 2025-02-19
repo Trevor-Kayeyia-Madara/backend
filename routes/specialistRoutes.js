@@ -1,7 +1,7 @@
-const express = require('express');
 const router = express.Router();
-const supabase = require('../config/supabase'); // Import Supabase client
-const authenticateUser = require('../middleware/authMiddleware'); // Import authentication middleware
+import express from 'express';
+import supabase from '../config/supabase';
+import authenticateUser from '../middleware/authMiddleware';
 
 // ✅ 1. Update Specialist Profile
 router.post('/update', authenticateUser, async (req, res) => {
@@ -93,4 +93,4 @@ router.delete('/delete', authenticateUser, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

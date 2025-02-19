@@ -1,5 +1,4 @@
-// 📄 middleware/authMiddleware.js
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
 
 const authenticateUser = (req, res, next) => {
     try {
@@ -14,4 +13,4 @@ const authenticateUser = (req, res, next) => {
     }
 };
 
-module.exports = authenticateUser;
+export default authenticateUser; // ✅ Correct ESM export

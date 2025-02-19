@@ -1,10 +1,9 @@
-require('dotenv').config();
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { createClient } = require('@supabase/supabase-js');
-const authenticateUser = require('../middleware/authMiddleware');
-
+import 'dotenv/config';
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { createClient} from '@supabase/supabase-js';
+import authenticateUser from '../middleware/authMiddleware';
 const router = express.Router();
 
 // Initialize Supabase Client
@@ -136,4 +135,4 @@ router.get('/profile', authenticateUser, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;
