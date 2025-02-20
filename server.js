@@ -188,15 +188,21 @@ app.get("/api/specialists", async (req, res) => {
     }
 });
 app.get("/specialists/:id", async (req, res) => {
-    const { id } = req.params;
+    let { id } = req.params;
+    id = parseInt(id, 10); // Convert to integer
+  
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "Invalid ID format" });
+    }
+  
     try {
       const { data, error } = await supabase
         .from("specialist_profile")
         .select(
           "id, speciality, service_rates, created_at, users (id, full_name, email, userType)"
         )
-        .eq("id", id)
-        .single(); // Ensures only one record is returned
+        .eq("id", id) // Ensure ID matches exactly
+        .single(); // Fetch a single row
   
       if (error) throw error;
   
