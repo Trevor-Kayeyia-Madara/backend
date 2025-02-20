@@ -189,11 +189,6 @@ app.get("/api/specialists", async (req, res) => {
 });
 app.get("/specialists/:id", async (req, res) => {
     const { id } = req.params;
-const specialistId = parseInt(id, 10); // Convert id to an integer
-
-if (isNaN(specialistId)) {
-  return res.status(400).json({ error: "Invalid specialist ID" });
-}
     try {
       const { data, error } = await supabase
         .from("specialist_profile")
