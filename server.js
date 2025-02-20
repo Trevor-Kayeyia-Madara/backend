@@ -187,7 +187,26 @@ app.get("/api/specialists", async (req, res) => {
         res.status(500).json({ message: "Server error while fetching specialists." });
     }
 });
-
+app.get("/specialists/:id", async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const { data, error } = await supabase
+        .from("specialist_profile")
+        .select(
+          "id, speciality, service_rates, profile_pic, created_at, users (id, full_name, email, userType)"
+        )
+        .eq("id", id)
+        .single(); // Ensures only one record is returned
+  
+      if (error) throw error;
+  
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+  
 // Server Listening
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
