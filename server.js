@@ -10,9 +10,10 @@ app.use(express.json());
 
 app.use(
     cors({
-      origin: "*", // Allow all origins (not recommended for production)
+      origin: "https://hair-specialist.vercel.app", // Allow all origins (not recommended for production)
       methods: ["GET", "POST", "PUT", "DELETE"], // Allowed request methods
       allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
+      credentials: true,
     })
   );
 
