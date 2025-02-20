@@ -77,11 +77,10 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
 
-// **SIGN UP Route**
 app.post("/api/signup", async (req, res) => {
-    const { email, password, userType } = req.body;
+    const { full_name, email, password, userType } = req.body;
 
-    if (!email || !password || !userType) {
+    if (!full_name || !email || !password || !userType) {
         return res.status(400).json({ message: "All fields are required." });
     }
 
@@ -103,11 +102,12 @@ app.post("/api/signup", async (req, res) => {
         // Insert new user into Supabase
         const { data: newUser, error: insertError } = await supabase
             .from("users")
-            .insert([{ email, password: hashedPassword, userType }])
+            .insert([{ full_name, email, password: hashedPassword, userType }])
             .select("id, email, userType")
             .single();
 
         if (insertError) {
+            console.error("Supabase Insert Error:", insertError);
             return res.status(500).json({ message: "Error creating user." });
         }
 
@@ -117,6 +117,7 @@ app.post("/api/signup", async (req, res) => {
         res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
 
     } catch (error) {
+        console.error("Signup Error:", error);
         res.status(500).json({ message: "Server error during signup." });
     }
 });
