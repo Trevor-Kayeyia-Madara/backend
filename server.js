@@ -22,6 +22,10 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 
 // Secret Key for JWT
 const JWT_SECRET = process.env.JWT_SECRET;
+// Validate Session Route
+app.get("/api/validate-session", authenticateToken, (req, res) => {
+    res.status(200).json({ loggedIn: true, userId: req.user.id });
+});
 
 // Login Route
 app.post("/api/login", async (req, res) => {
