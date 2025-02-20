@@ -22,6 +22,24 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 
 // Secret Key for JWT
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Middleware to authenticate token
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ message: "Invalid token" });
+
+        req.user = user; // Attach user info to request
+        next();
+    });
+};
+
 // Validate Session Route
 app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
@@ -59,22 +77,6 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
 
-// Middleware to authenticate token
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ message: "Invalid token" });
-
-        req.user = user; // Attach user info to request
-        next();
-    });
-};
 // **SIGN UP Route**
 app.post("/api/signup", async (req, res) => {
     const { email, password, userType } = req.body;
@@ -118,6 +120,7 @@ app.post("/api/signup", async (req, res) => {
         res.status(500).json({ message: "Server error during signup." });
     }
 });
+
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
