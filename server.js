@@ -45,55 +45,44 @@ app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
 
+// Login Route
 app.post("/api/login", async (req, res) => {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required." });
+    }
+
+    // Fetch user from Supabase
+    const { data: user, error } = await supabase
+        .from("users")
+        .select("id, email, password, userType")
+        .eq("email", email)
+        .single();
+
+    if (error || !user) {
+        return res.status(401).json({ message: "Invalid email or user not found." });
+    }
+
+    console.log("Stored password in DB:", user.password);  // Debugging
+
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required." });
-        }
-
-        // Fetch user from Supabase
-        const { data: user, error } = await supabase
-            .from("users")
-            .select("id, email, password, userType")
-            .eq("email", email)
-            .single();
-
-        if (error || !user) {
-            console.log("User fetch error:", error);
-            return res.status(401).json({ message: "Invalid email or user not found." });
-        }
-
-        console.log("User fetched:", user);
-
-        // Ensure the password is hashed in the database
-        if (!user.password.startsWith("$2b$")) {
-            console.log("Stored password is not hashed:", user.password);
-            return res.status(500).json({ message: "Password format error." });
-        }
-
-        // Compare hashed passwords
+        // Compare hashed password
         const isMatch = await bcrypt.compare(password, user.password);
+        console.log("Password match:", isMatch);  // Debugging
+
         if (!isMatch) {
-            console.log("Password does not match for user:", user.email);
             return res.status(401).json({ message: "Invalid password." });
         }
-
-        // Generate JWT Token
-        if (!JWT_SECRET) {
-            console.log("JWT_SECRET is not defined.");
-            return res.status(500).json({ message: "Server configuration error." });
-        }
-
-        const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "2h" });
-
-        console.log("User logged in successfully:", user.email);
-        res.status(200).json({ message: "Login successful", userType: user.userType, token });
-
-    } catch (err) {
-        console.error("Server error:", err);
-        res.status(500).json({ message: "Internal server error." });
+    } catch (bcryptError) {
+        console.error("bcrypt error:", bcryptError);  // Debugging
+        return res.status(500).json({ message: "Password format error.", error: bcryptError.message });
     }
+
+    // Generate JWT Token
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "2h" });
+
+    res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
 
 // Update Password Route (Protected)
