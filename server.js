@@ -44,6 +44,7 @@ const authenticateToken = (req, res, next) => {
 app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
+
 // Login Route
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
@@ -107,6 +108,7 @@ app.put("/api/update-password", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Server error while updating password." });
     }
 });
+
 // Signup Route
 app.post("/api/signup", async (req, res) => {
     const { full_name, email, password, userType } = req.body;
@@ -149,6 +151,7 @@ app.post("/api/signup", async (req, res) => {
         res.status(500).json({ message: "Server error during signup." });
     }
 });
+
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
@@ -170,6 +173,7 @@ app.get("/api/user", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch user details." });
     }
 });
+
 // Get All Specialists
 app.get("/api/specialists", async (req, res) => {
     try {
@@ -187,31 +191,50 @@ app.get("/api/specialists", async (req, res) => {
         res.status(500).json({ message: "Server error while fetching specialists." });
     }
 });
-app.get("/specialists/:id", async (req, res) => {
-    let { id } = req.params;
-    id = parseInt(id, 10); // Convert to integer
-  
-    if (isNaN(id)) {
-      return res.status(400).json({ error: "Invalid ID format" });
-    }
+
+// API to get a specific specialist by ID
+app.get('/specialists/:id', async (req, res) => {
+    const { id } = req.params;
   
     try {
-      const { data, error } = await supabase
-        .from("specialist_profile")
-        .select(
-          "id, speciality, service_rates, created_at, users (id, full_name, email, userType)"
-        )
-        .eq("id", id) // Ensure ID matches exactly
-        .single(); // Fetch a single row
+      const result = await pool.query(
+        'SELECT * FROM specialist_profile WHERE id = $1',
+        [id]
+      );
   
-      if (error) throw error;
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Specialist not found' });
+      }
   
-      res.json(data);
+      res.json(result.rows[0]);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error(err);
+      res.status(500).json({ message: 'Server error' });
     }
   });
-  
+
+// Get Logged-In Specialist Profile (Protected)
+app.get("/api/specialist-profile", authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Fetch specialist profile from Supabase
+        const { data: specialistProfile, error } = await supabase
+            .from("specialist_profile")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+
+        if (error || !specialistProfile) {
+            return res.status(404).json({ message: "Specialist profile not found." });
+        }
+
+        res.status(200).json(specialistProfile);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to fetch specialist profile." });
+    }
+});
+
 // Server Listening
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
