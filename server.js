@@ -63,7 +63,49 @@ const authenticateToken = (req, res, next) => {
         next();
     });
 };
+// **SIGN UP Route**
+app.post("/api/signup", async (req, res) => {
+    const { email, password, userType } = req.body;
 
+    if (!email || !password || !userType) {
+        return res.status(400).json({ message: "All fields are required." });
+    }
+
+    try {
+        // Check if user already exists
+        const { data: existingUser, error: existingError } = await supabase
+            .from("users")
+            .select("email")
+            .eq("email", email)
+            .single();
+
+        if (existingUser) {
+            return res.status(400).json({ message: "Email already registered." });
+        }
+
+        // Hash Password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert new user into Supabase
+        const { data: newUser, error: insertError } = await supabase
+            .from("users")
+            .insert([{ email, password: hashedPassword, userType }])
+            .select("id, email, userType")
+            .single();
+
+        if (insertError) {
+            return res.status(500).json({ message: "Error creating user." });
+        }
+
+        // Generate JWT Token
+        const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
+
+        res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server error during signup." });
+    }
+});
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
