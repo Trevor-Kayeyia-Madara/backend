@@ -76,7 +76,37 @@ app.post("/api/login", async (req, res) => {
     // Return user type and token
     res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
+// Update Password Route (Protected)
+app.put("/api/update-password", authenticateToken, async (req, res) => {
+    const { newPassword } = req.body;
 
+    if (!newPassword) {
+        return res.status(400).json({ message: "New password is required." });
+    }
+
+    try {
+        const userId = req.user.id;
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update the user's password in Supabase
+        const { error } = await supabase
+            .from("users")
+            .update({ password: hashedPassword })
+            .eq("id", userId);
+
+        if (error) {
+            console.error("Supabase Update Error:", error);
+            return res.status(500).json({ message: "Error updating password." });
+        }
+
+        res.status(200).json({ message: "Password updated successfully." });
+    } catch (error) {
+        console.error("Update Password Error:", error);
+        res.status(500).json({ message: "Server error while updating password." });
+    }
+});
 app.post("/api/signup", async (req, res) => {
     const { full_name, email, password, userType } = req.body;
 
