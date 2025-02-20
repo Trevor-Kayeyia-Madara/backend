@@ -194,7 +194,7 @@ app.get("/specialists/:id", async (req, res) => {
       const { data, error } = await supabase
         .from("specialist_profile")
         .select(
-          "id, speciality, service_rates, profile_pic, created_at, users (id, full_name, email, userType)"
+          "id, speciality, service_rates, created_at, users (id, full_name, email, userType)"
         )
         .eq("id", id)
         .single(); // Ensures only one record is returned
