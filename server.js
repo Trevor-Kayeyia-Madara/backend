@@ -44,7 +44,6 @@ const authenticateToken = (req, res, next) => {
 app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
-
 // Login Route
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
@@ -66,17 +65,9 @@ app.post("/api/login", async (req, res) => {
 
     console.log("Stored password in DB:", user.password);  // Debugging
 
-    try {
-        // Compare hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
-        console.log("Password match:", isMatch);  // Debugging
-
-        if (!isMatch) {
-            return res.status(401).json({ message: "Invalid password." });
-        }
-    } catch (bcryptError) {
-        console.error("bcrypt error:", bcryptError);  // Debugging
-        return res.status(500).json({ message: "Password format error.", error: bcryptError.message });
+    // Compare passwords (no hashing)
+    if (password !== user.password) {
+        return res.status(401).json({ message: "Invalid password." });
     }
 
     // Generate JWT Token
@@ -116,7 +107,7 @@ app.put("/api/update-password", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Server error while updating password." });
     }
 });
-
+// Signup Route
 app.post("/api/signup", async (req, res) => {
     const { full_name, email, password, userType } = req.body;
 
@@ -136,13 +127,10 @@ app.post("/api/signup", async (req, res) => {
             return res.status(400).json({ message: "Email already registered." });
         }
 
-        // Hash Password
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insert new user into Supabase
+        // Insert new user into Supabase (plaintext password)
         const { data: newUser, error: insertError } = await supabase
             .from("users")
-            .insert([{ full_name, email, password: hashedPassword, userType }])
+            .insert([{ full_name, email, password, userType }]) // Password is stored as plaintext
             .select("id, email, userType")
             .single();
 
@@ -161,7 +149,6 @@ app.post("/api/signup", async (req, res) => {
         res.status(500).json({ message: "Server error during signup." });
     }
 });
-
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
