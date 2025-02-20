@@ -142,6 +142,23 @@ app.get("/api/user", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch user details." });
     }
 });
+// Get All Specialists
+app.get("/api/specialists", async (req, res) => {
+    try {
+        // Fetch specialists from Supabase
+        const { data: specialists, error } = await supabase
+            .from("specialist_profile")
+            .select("*"); // Select all fields from the table
+
+        if (error) {
+            return res.status(500).json({ message: "Error fetching specialists." });
+        }
+
+        res.status(200).json(specialists);
+    } catch (error) {
+        res.status(500).json({ message: "Server error while fetching specialists." });
+    }
+});
 
 // Server Listening
 const PORT = process.env.PORT || 5000;
