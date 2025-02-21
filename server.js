@@ -44,7 +44,6 @@ const authenticateToken = (req, res, next) => {
 app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
-
 // Login Route
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
@@ -108,7 +107,6 @@ app.put("/api/update-password", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Server error while updating password." });
     }
 });
-
 // Signup Route
 app.post("/api/signup", async (req, res) => {
     const { full_name, email, password, userType } = req.body;
@@ -151,7 +149,6 @@ app.post("/api/signup", async (req, res) => {
         res.status(500).json({ message: "Server error during signup." });
     }
 });
-
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
@@ -173,65 +170,51 @@ app.get("/api/user", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch user details." });
     }
 });
-
-// Get All Specialists
 app.get("/api/specialists", async (req, res) => {
     try {
-        // Fetch specialists from Supabase
+        // Fetch specialists from Supabase, joining with users table
         const { data: specialists, error } = await supabase
             .from("specialist_profile")
-            .select("*"); // Select all fields from the table
+            .select("id, speciality, service_rates, location, created_at, users (full_name)")
+            .eq("users.id", "specialist_profile.user_id"); // Ensure the correct relation
 
         if (error) {
-            return res.status(500).json({ message: "Error fetching specialists." });
+            return res.status(500).json({ message: "Error fetching specialists.", error });
         }
 
-        res.status(200).json(specialists);
+        res.status(200).json(specialists.map(spec => ({
+            ...spec,
+            full_name: spec.users?.full_name // Attach full_name from users table
+        })));
     } catch (error) {
         res.status(500).json({ message: "Server error while fetching specialists." });
     }
 });
+app.get("/specialists/:id", async (req, res) => {
+    let { id } = req.params;
+    id = parseInt(id, 10);
 
-// API to get a specific specialist by ID
-app.get('/specialists/:id', async (req, res) => {
-    const { id } = req.params;
-  
-    try {
-      const result = await pool.query(
-        'SELECT * FROM specialist_profile WHERE id = $1',
-        [id]
-      );
-  
-      if (result.rows.length === 0) {
-        return res.status(404).json({ message: 'Specialist not found' });
-      }
-  
-      res.json(result.rows[0]);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: 'Server error' });
+    if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ID format" });
     }
-  });
 
-// Get Logged-In Specialist Profile (Protected)
-app.get("/api/specialist-profile", authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.id;
-
-        // Fetch specialist profile from Supabase
-        const { data: specialistProfile, error } = await supabase
+        const { data, error } = await supabase
             .from("specialist_profile")
-            .select("*")
-            .eq("user_id", userId)
+            .select(
+                "id, speciality, service_rates, location, created_at, users (full_name, email, userType)"
+            )
+            .eq("id", id)
             .single();
 
-        if (error || !specialistProfile) {
-            return res.status(404).json({ message: "Specialist profile not found." });
-        }
+        if (error) throw error;
 
-        res.status(200).json(specialistProfile);
-    } catch (error) {
-        res.status(500).json({ message: "Failed to fetch specialist profile." });
+        res.json({
+            ...data,
+            full_name: data.users?.full_name // Ensure full_name is included
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
