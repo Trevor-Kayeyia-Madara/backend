@@ -203,22 +203,28 @@ app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
   
     try {
-      const query = `
-        SELECT users.id, users.full_name, users.email, users.userType, users.created_at, 
-               specialist_profile.id AS specialist_id, specialist_profile.speciality, 
-               specialist_profile.service_rates, specialist_profile.location, specialist_profile.created_at AS profile_created_at
-        FROM users
-        INNER JOIN specialist_profile ON users.id = specialist_profile.user_id
-        WHERE users.id = $1;
-      `;
+      // Fetch user first
+      const userQuery = `SELECT * FROM users WHERE id = $1;`;
+      const userResult = await pool.query(userQuery, [id]);
   
-      const { rows } = await pool.query(query, [id]);
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
   
-      if (rows.length === 0) {
+      const user = userResult.rows[0];
+  
+      // Fetch specialist profile
+      const profileQuery = `SELECT * FROM specialist_profile WHERE user_id = $1;`;
+      const profileResult = await pool.query(profileQuery, [id]);
+  
+      if (profileResult.rows.length === 0) {
         return res.status(404).json({ message: "Specialist profile not found" });
       }
   
-      res.json(rows[0]); // Send the first result
+      const profile = profileResult.rows[0];
+  
+      // Merge both objects and send response
+      res.json({ ...user, ...profile });
     } catch (err) {
       console.error("Error fetching specialist profile:", err);
       res.status(500).json({ message: "Internal Server Error" });
