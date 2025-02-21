@@ -170,26 +170,36 @@ app.get("/api/user", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch user details." });
     }
 });
+
 app.get("/api/specialists", async (req, res) => {
     try {
-        // Fetch specialists from Supabase, joining with users table
+        // Fetch specialists, properly joining with the users table
         const { data: specialists, error } = await supabase
             .from("specialist_profile")
-            .select("id, speciality, service_rates, location, created_at, users (full_name)")
-            .eq("users.id", "specialist_profile.user_id"); // Ensure the correct relation
+            .select("id, speciality, service_rates, location, created_at, users!inner (full_name)")
+            .order("id", { ascending: true }); // Ensure ordered results
 
         if (error) {
             return res.status(500).json({ message: "Error fetching specialists.", error });
         }
 
-        res.status(200).json(specialists.map(spec => ({
-            ...spec,
-            full_name: spec.users?.full_name // Attach full_name from users table
-        })));
+        // Format the response to include full_name properly
+        const formattedSpecialists = specialists.map(spec => ({
+            id: spec.id,
+            speciality: spec.speciality,
+            service_rates: spec.service_rates,
+            location: spec.location,
+            created_at: spec.created_at,
+            full_name: spec.users?.full_name // Get full_name from users
+        }));
+
+        res.status(200).json(formattedSpecialists);
     } catch (error) {
         res.status(500).json({ message: "Server error while fetching specialists." });
     }
 });
+
+
 app.get("/specialists/:id", async (req, res) => {
     let { id } = req.params;
     id = parseInt(id, 10);
@@ -201,17 +211,21 @@ app.get("/specialists/:id", async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("specialist_profile")
-            .select(
-                "id, speciality, service_rates, location, created_at, users (full_name, email, userType)"
-            )
+            .select("id, speciality, service_rates, location, created_at, users!inner (full_name, email, userType)")
             .eq("id", id)
             .single();
 
         if (error) throw error;
 
         res.json({
-            ...data,
-            full_name: data.users?.full_name // Ensure full_name is included
+            id: data.id,
+            speciality: data.speciality,
+            service_rates: data.service_rates,
+            location: data.location,
+            created_at: data.created_at,
+            full_name: data.users?.full_name, // Fetch full_name from users
+            email: data.users?.email,
+            userType: data.users?.userType
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
