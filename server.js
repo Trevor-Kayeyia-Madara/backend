@@ -199,16 +199,23 @@ app.get("/api/specialists", async (req, res) => {
     }
 });
 
-
 app.get("/api/specialists/:id", async (req, res) => {
-    const { id } = req.params;
+    let { id } = req.params;
+    
+    // Convert id to an integer to avoid PostgreSQL type mismatch issues
+    id = parseInt(id, 10);
+  
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+  
     try {
       const query = `
         SELECT 
           u.id AS user_id, u.full_name, u.email, u.userType, u.created_at AS user_created_at,
           s.id AS specialist_id, s.speciality, s.service_rates, s.location, s.created_at AS profile_created_at
         FROM users u
-        JOIN specialist_profile s ON u.id = s.user_id
+        LEFT JOIN specialist_profile s ON u.id = s.user_id
         WHERE u.id = $1;
       `;
   
