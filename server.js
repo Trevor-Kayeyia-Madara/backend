@@ -201,13 +201,13 @@ app.get("/api/specialists", async (req, res) => {
 
 app.get("/api/specialists/:id", async (req, res) => {
     let { id } = req.params;
-    
-    // Convert id to an integer to avoid PostgreSQL type mismatch issues
     id = parseInt(id, 10);
   
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid ID format" });
     }
+  
+    console.log("Fetching specialist with ID:", id);
   
     try {
       const query = `
@@ -219,16 +219,18 @@ app.get("/api/specialists/:id", async (req, res) => {
         WHERE u.id = $1;
       `;
   
+      console.log("Executing query...");
       const { rows } = await pool.query(query, [id]);
+      console.log("Query executed successfully:", rows);
   
       if (rows.length === 0) {
         return res.status(404).json({ message: "Specialist not found" });
       }
   
-      res.json(rows[0]); // Send the joined result
+      res.json(rows[0]);
     } catch (err) {
-      console.error("Error fetching specialist profile:", err);
-      res.status(500).json({ message: "Internal Server Error" });
+      console.error("Database error:", err);
+      res.status(500).json({ message: "Internal Server Error", error: err.message });
     }
   });
   
