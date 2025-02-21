@@ -200,7 +200,7 @@ app.get("/api/specialists", async (req, res) => {
 });
 
 
-app.get("/specialists/:id", async (req, res) => {
+app.get("/api/specialists/:id", async (req, res) => {
     let { id } = req.params;
     id = parseInt(id, 10);
 
