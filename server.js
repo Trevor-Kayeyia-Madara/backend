@@ -200,37 +200,28 @@ app.get("/api/specialists", async (req, res) => {
 });
 
 app.get("/api/specialists/:id", async (req, res) => {
-    let { id } = req.params;
-    id = parseInt(id, 10);
-  
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid ID format" });
-    }
-  
-    console.log("Fetching specialist with ID:", id);
+    const { id } = req.params;
   
     try {
       const query = `
-        SELECT 
-          u.id AS user_id, u.full_name, u.email, u.userType, u.created_at AS user_created_at,
-          s.id AS specialist_id, s.speciality, s.service_rates, s.location, s.created_at AS profile_created_at
-        FROM users u
-        LEFT JOIN specialist_profile s ON u.id = s.user_id
-        WHERE u.id = $1;
+        SELECT users.id, users.full_name, users.email, users.userType, users.created_at, 
+               specialist_profile.id AS specialist_id, specialist_profile.speciality, 
+               specialist_profile.service_rates, specialist_profile.location, specialist_profile.created_at AS profile_created_at
+        FROM users
+        INNER JOIN specialist_profile ON users.id = specialist_profile.user_id
+        WHERE users.id = $1;
       `;
   
-      console.log("Executing query...");
       const { rows } = await pool.query(query, [id]);
-      console.log("Query executed successfully:", rows);
   
       if (rows.length === 0) {
-        return res.status(404).json({ message: "Specialist not found" });
+        return res.status(404).json({ message: "Specialist profile not found" });
       }
   
-      res.json(rows[0]);
+      res.json(rows[0]); // Send the first result
     } catch (err) {
-      console.error("Database error:", err);
-      res.status(500).json({ message: "Internal Server Error", error: err.message });
+      console.error("Error fetching specialist profile:", err);
+      res.status(500).json({ message: "Internal Server Error" });
     }
   });
   
