@@ -243,6 +243,50 @@ app.get("/api/services", async (req, res) => {
   }
 });
 
+/** 
+ * Get Booked Dates
+ * Fetches all appointments and returns booked dates
+ */
+app.get("/api/booked-dates", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("date");
+
+    if (error) throw error;
+
+    const bookedDates = data.map((appointment) => appointment.date);
+    res.json(bookedDates);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create Appointment
+ * Adds a new appointment to the database
+ */
+app.post("/api/appointments", async (req, res) => {
+  const { customer_id, specialist_id, service_id, date, time, status } = req.body;
+
+  if (!date || !time || !status) {
+    return res.status(400).json({ error: "Date, time, and status are required" });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert([{ customer_id, specialist_id, service_id, date, time, status }])
+      .select();
+
+    if (error) throw error;
+
+    res.status(201).json({ message: "Appointment booked successfully", appointment: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Server Listening
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
