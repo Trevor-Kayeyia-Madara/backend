@@ -201,37 +201,30 @@ app.get("/api/specialists", async (req, res) => {
 
 
 app.get("/api/specialists/:id", async (req, res) => {
-    let { id } = req.params;
-    id = parseInt(id, 10);
-
-    if (isNaN(id)) {
-        return res.status(400).json({ error: "Invalid ID format" });
-    }
-
+    const { id } = req.params;
     try {
-        const { data, error } = await supabase
-            .from("specialist_profile")
-            .select("id, speciality, service_rates, location, created_at, users!inner (full_name, email, userType)")
-            .eq("id", id)
-            .single();
-
-        if (error) throw error;
-
-        res.json({
-            id: data.id,
-            speciality: data.speciality,
-            service_rates: data.service_rates,
-            location: data.location,
-            created_at: data.created_at,
-            full_name: data.users?.full_name, // Fetch full_name from users
-            email: data.users?.email,
-            userType: data.users?.userType
-        });
+      const query = `
+        SELECT 
+          u.id AS user_id, u.full_name, u.email, u.userType, u.created_at AS user_created_at,
+          s.id AS specialist_id, s.speciality, s.service_rates, s.location, s.created_at AS profile_created_at
+        FROM users u
+        JOIN specialist_profile s ON u.id = s.user_id
+        WHERE u.id = $1;
+      `;
+  
+      const { rows } = await pool.query(query, [id]);
+  
+      if (rows.length === 0) {
+        return res.status(404).json({ message: "Specialist not found" });
+      }
+  
+      res.json(rows[0]); // Send the joined result
     } catch (err) {
-        res.status(500).json({ error: err.message });
+      console.error("Error fetching specialist profile:", err);
+      res.status(500).json({ message: "Internal Server Error" });
     }
-});
-
+  });
+  
 // Get all services
 app.get("/api/services", async (req, res) => {
   try {
