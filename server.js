@@ -232,6 +232,17 @@ app.get("/api/specialists/:id", async (req, res) => {
     }
 });
 
+// Get all services
+app.get("/api/services", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("services").select("*");
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Server Listening
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
