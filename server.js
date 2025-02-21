@@ -201,36 +201,41 @@ app.get("/api/specialists", async (req, res) => {
 
 app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
-  
+
     try {
-      // Fetch user first
-      const userQuery = `SELECT * FROM users WHERE id = $1;`;
-      const userResult = await pool.query(userQuery, [id]);
-  
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-  
-      const user = userResult.rows[0];
-  
-      // Fetch specialist profile
-      const profileQuery = `SELECT * FROM specialist_profile WHERE user_id = $1;`;
-      const profileResult = await pool.query(profileQuery, [id]);
-  
-      if (profileResult.rows.length === 0) {
-        return res.status(404).json({ message: "Specialist profile not found" });
-      }
-  
-      const profile = profileResult.rows[0];
-  
-      // Merge both objects and send response
-      res.json({ ...user, ...profile });
+        // Fetch user first
+        const { data: user, error: userError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", id)
+            .single();
+
+        if (userError) throw userError;
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Fetch specialist profile
+        const { data: profile, error: profileError } = await supabase
+            .from("specialist_profile")
+            .select("*")
+            .eq("user_id", id)
+            .single();
+
+        if (profileError) throw profileError;
+        if (!profile) {
+            return res.status(404).json({ message: "Specialist profile not found" });
+        }
+
+        // Merge both objects and send response
+        res.json({ ...user, ...profile });
     } catch (err) {
-      console.error("Error fetching specialist profile:", err);
-      res.status(500).json({ message: "Internal Server Error" });
+        console.error("Error fetching specialist profile:", err);
+        res.status(500).json({ message: "Internal Server Error" });
     }
-  });
-  
+});
+
+
 // Get all services
 app.get("/api/services", async (req, res) => {
   try {
