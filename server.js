@@ -204,34 +204,26 @@ app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
   
     // Convert id to an integer if necessary
-    const userId = parseInt(id, 10);
-    if (isNaN(userId)) {
-      return res.status(400).json({ error: "Invalid user ID" });
+    const specialistId = parseInt(id, 10);
+    if (isNaN(specialistId)) {
+      return res.status(400).json({ error: "Invalid specialist ID" });
     }
   
-    // Check if the user exists first
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
-  
-    if (userError || !user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-  
-    // Fetch specialist profile associated with the user_id
-    const { data: specialist, error: specialistError } = await supabase
+    // Fetch specialist profile with linked user details
+    const { data, error } = await supabase
       .from("specialist_profile")
-      .select("*")
-      .eq("user_id", userId)
+      .select(
+        `id, speciality, service_rates, location, rating, created_at,
+         users: user_id (id, full_name, email, userType, created_at)`
+      )
+      .eq("id", specialistId)
       .single();
   
-    if (specialistError || !specialist) {
+    if (error || !data) {
       return res.status(404).json({ error: "Specialist profile not found" });
     }
   
-    res.json(specialist);
+    res.json(data);
   });
   
 
