@@ -151,7 +151,7 @@ app.post("/api/signup", async (req, res) => {
     }
 });
 // Get Logged-in Customer ID
-app.get("/api/users/:customer-id", authenticateToken, async (req, res) => {
+app.get("/api/users/:customerId", authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
 
