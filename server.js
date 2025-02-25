@@ -202,40 +202,38 @@ app.get("/api/specialists", async (req, res) => {
 
 app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
-
-    try {
-        // Fetch user first
-        const { data: user, error: userError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("id", id)
-            .single();
-
-        if (userError) throw userError;
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Fetch specialist profile
-        const { data: profile, error: profileError } = await supabase
-            .from("specialist_profile")
-            .select("*")
-            .eq("user_id", id)
-            .single();
-
-        if (profileError) throw profileError;
-        if (!profile) {
-            return res.status(404).json({ message: "Specialist profile not found" });
-        }
-
-        // Merge both objects and send response
-        res.json({ ...user, ...profile });
-    } catch (err) {
-        console.error("Error fetching specialist profile:", err);
-        res.status(500).json({ message: "Internal Server Error" });
+  
+    // Convert id to an integer if necessary
+    const userId = parseInt(id, 10);
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
     }
-});
-
+  
+    // Check if the user exists first
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", userId)
+      .single();
+  
+    if (userError || !user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+  
+    // Fetch specialist profile associated with the user_id
+    const { data: specialist, error: specialistError } = await supabase
+      .from("specialist_profile")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+  
+    if (specialistError || !specialist) {
+      return res.status(404).json({ error: "Specialist profile not found" });
+    }
+  
+    res.json(specialist);
+  });
+  
 
 // Get all services
 app.get("/api/services", async (req, res) => {
