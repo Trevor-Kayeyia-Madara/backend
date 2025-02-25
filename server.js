@@ -291,7 +291,7 @@ app.get("/api/specialists/:id", async (req, res) => {
 });
  // Update Specialist Profile
 // Update specialist profile
-router.put("/api/specialists/:id", async (req, res) => {
+app.put("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
     const { full_name, email, speciality, service_rates, location } = req.body;
 
