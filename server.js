@@ -246,36 +246,23 @@ app.get("/api/specialists/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid specialist ID" });
     }
   
-    // Fetch specialist profile by joining with users table
+    // Fetch specialist profile with linked user details
     const { data, error } = await supabase
       .from("specialist_profile")
-      .select(`
-        id, speciality, service_rates, location, rating, created_at,
-        users!inner(id, full_name, email, userType, created_at)
-      `)
+      .select(
+        `id, speciality, service_rates, location, rating, created_at,
+         users: user_id (id, full_name, email, userType, created_at)`
+      )
       .eq("id", specialistId)
       .single();
   
     if (error || !data) {
       return res.status(404).json({ error: "Specialist profile not found" });
     }
-
-    // Format the response to ensure it includes user details
-    const formattedProfile = {
-      id: data.id,
-      speciality: data.speciality,
-      service_rates: data.service_rates,
-      location: data.location,
-      rating: data.rating,
-      created_at: data.created_at,
-      full_name: data.users.full_name, // Get full_name from users table
-      email: data.users.email, // Get email from users table
-      userType: data.users.userType, // Get userType from users table
-      user_created_at: data.users.created_at, // Get created_at from users table
-    };
   
-    res.json(formattedProfile);
-});
+    res.json(data);
+  });
+  
 
 // Get all services
 app.get("/api/services", async (req, res) => {
