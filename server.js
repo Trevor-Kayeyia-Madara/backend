@@ -371,25 +371,50 @@ app.get("/api/booked-dates", async (req, res) => {
  * Adds a new appointment to the database
  */
 app.post("/api/appointments", async (req, res) => {
-  const { customer_id, specialist_id, service_id, date, time, status } = req.body;
-
-  if (!date || !time || !status) {
-    return res.status(400).json({ error: "Date, time, and status are required" });
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from("appointments")
-      .insert([{ customer_name, specialist_id, service_id, date, time, status }])
-      .select();
-
-    if (error) throw error;
-
-    res.status(201).json({ message: "Appointment booked successfully", appointment: data });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const { customer_name, specialist_id, service_id, date, time, status } = req.body;
+  
+    if (!customer_name || !date || !time || !status) {
+      return res.status(400).json({ error: "Customer name, date, time, and status are required" });
+    }
+  
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .insert([{ customer_name, specialist_id, service_id, date, time, status }])
+        .select();
+  
+      if (error) throw error;
+  
+      res.status(201).json({ message: "Appointment booked successfully", appointment: data });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
+  // Update appointment status from "Pending" to "Booked"
+  app.put("/api/appointments/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+  
+    if (!status) {
+      return res.status(400).json({ error: "Status is required" });
+    }
+  
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .update({ status })
+        .eq("id", id)
+        .select();
+  
+      if (error) throw error;
+  
+      res.status(200).json({ message: "Appointment status updated successfully", appointment: data });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
