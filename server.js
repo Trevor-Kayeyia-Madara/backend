@@ -325,16 +325,27 @@ app.put("/api/specialists/:id", async (req, res) => {
     }
 });
 
-// Get all services
 app.get("/api/services", async (req, res) => {
-  try {
-    const { data, error } = await supabase.from("services").select("*");
-    if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const { specialistId } = req.query;
+  
+    if (!specialistId) {
+      return res.status(400).json({ error: "Specialist ID is required" });
+    }
+  
+    try {
+      const { data, error } = await supabase
+        .from("services")
+        .select("*")
+        .eq("specialist_id", specialistId); // Filter by specialist_id
+  
+      if (error) throw error;
+  
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+  
 
 /** 
  * Get Booked Dates
