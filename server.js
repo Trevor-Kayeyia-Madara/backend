@@ -176,7 +176,7 @@ app.get("/api/specialists", async (req, res) => {
         // Fetch specialists, properly joining with the users table
         const { data: specialists, error } = await supabase
             .from("specialist_profile")
-            .select("id, speciality, service_rates, location, created_at, users!inner (full_name)")
+            .select("id, speciality, service_rates, rating, location, created_at, users!inner (full_name)")
             .order("id", { ascending: true }); // Ensure ordered results
 
         if (error) {
@@ -188,6 +188,7 @@ app.get("/api/specialists", async (req, res) => {
             id: spec.id,
             speciality: spec.speciality,
             service_rates: spec.service_rates,
+            rating: spec.rating,
             location: spec.location,
             created_at: spec.created_at,
             full_name: spec.users?.full_name // Get full_name from users
