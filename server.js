@@ -239,30 +239,57 @@ app.get("/api/specialists", async (req, res) => {
 
 app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
-  
+
     // Convert id to an integer if necessary
-    const specialistId = parseInt(id, 10);
-    if (isNaN(specialistId)) {
-      return res.status(400).json({ error: "Invalid specialist ID" });
+    const userId = parseInt(id, 10);
+    if (isNaN(userId)) {
+        return res.status(400).json({ error: "Invalid user ID" });
     }
-  
-    // Fetch specialist profile with linked user details
-    const { data, error } = await supabase
-      .from("specialist_profile")
-      .select(
-        `id, speciality, service_rates, location, rating, created_at,
-         users: user_id (id, full_name, email, userType, created_at)`
-      )
-      .eq("id", specialistId)
-      .single();
-  
-    if (error || !data) {
-      return res.status(404).json({ error: "Specialist profile not found" });
+
+    try {
+        // Step 1: Find the specialist profile using user_id from users table
+        const { data: specialistProfile, error: profileError } = await supabase
+            .from("specialist_profile")
+            .select("id, user_id, speciality, service_rates, location, rating, created_at")
+            .eq("user_id", userId) // Fetch using user_id from users table
+            .single();
+
+        if (profileError || !specialistProfile) {
+            return res.status(404).json({ error: "Specialist profile not found." });
+        }
+
+        // Step 2: Fetch the user details (name, email) using user_id
+        const { data: user, error: userError } = await supabase
+            .from("users")
+            .select("id, full_name, email, userType, created_at")
+            .eq("id", userId)
+            .single();
+
+        if (userError || !user) {
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        // Step 3: Combine user details with specialist profile data
+        const responseData = {
+            specialistId: specialistProfile.id, // Specialist ID from specialist_profile table
+            userId: user.id, // User ID from users table
+            full_name: user.full_name,
+            email: user.email,
+            userType: user.userType,
+            created_at: user.created_at,
+            speciality: specialistProfile.speciality,
+            service_rates: specialistProfile.service_rates,
+            location: specialistProfile.location,
+            rating: specialistProfile.rating,
+        };
+
+        res.json(responseData);
+    } catch (error) {
+        console.error("Error fetching specialist profile:", error);
+        res.status(500).json({ error: "Internal server error." });
     }
-  
-    res.json(data);
-  });
-  
+});
+
 
 // Get all services
 app.get("/api/services", async (req, res) => {
