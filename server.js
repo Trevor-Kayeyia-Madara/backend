@@ -241,22 +241,25 @@ app.get("/api/specialists/:id", async (req, res) => {
     const { id } = req.params;
 
     // Convert id to an integer if necessary
-    const userId = parseInt(id, 10);
-    if (isNaN(userId)) {
-        return res.status(400).json({ error: "Invalid user ID" });
+    const specialistId = parseInt(id, 10);
+    if (isNaN(specialistId)) {
+        return res.status(400).json({ error: "Invalid specialist ID" });
     }
 
     try {
-        // Step 1: Find the specialist profile using user_id from users table
+        // Step 1: Find the specialist profile using `id` from specialist_profile table
         const { data: specialistProfile, error: profileError } = await supabase
             .from("specialist_profile")
             .select("id, user_id, speciality, service_rates, location, rating, created_at")
-            .eq("user_id", userId) // Fetch using user_id from users table
+            .eq("id", specialistId) // Fetch using the specialist_profile ID
             .single();
 
         if (profileError || !specialistProfile) {
             return res.status(404).json({ error: "Specialist profile not found." });
         }
+
+        // Extract user_id from specialistProfile
+        const userId = specialistProfile.user_id;
 
         // Step 2: Fetch the user details (name, email) using user_id
         const { data: user, error: userError } = await supabase
@@ -289,6 +292,7 @@ app.get("/api/specialists/:id", async (req, res) => {
         res.status(500).json({ error: "Internal server error." });
     }
 });
+
  // Update Specialist Profile
 // Update specialist profile
 app.put("/api/specialists/:id", async (req, res) => {
