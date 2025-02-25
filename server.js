@@ -149,6 +149,32 @@ app.post("/api/signup", async (req, res) => {
         res.status(500).json({ message: "Server error during signup." });
     }
 });
+// Get Logged-in Customer ID
+app.get("/api/customer-id", authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Fetch user details and check if the userType is "customer"
+        const { data: user, error } = await supabase
+            .from("users")
+            .select("id, userType")
+            .eq("id", userId)
+            .single();
+
+        if (error || !user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        if (user.userType !== "customer") {
+            return res.status(403).json({ message: "Access denied. Only customers can access this route." });
+        }
+
+        res.status(200).json({ userId: user.id });
+    } catch (error) {
+        res.status(500).json({ message: "Server error while fetching customer ID." });
+    }
+});
+
 // Get User Route (Protected)
 app.get("/api/user", authenticateToken, async (req, res) => {
     try {
