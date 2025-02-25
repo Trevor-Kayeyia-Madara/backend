@@ -289,7 +289,37 @@ app.get("/api/specialists/:id", async (req, res) => {
         res.status(500).json({ error: "Internal server error." });
     }
 });
+ // Update Specialist Profile
+// Update specialist profile
+router.put("/api/specialists/:id", async (req, res) => {
+    const { id } = req.params;
+    const { full_name, email, speciality, service_rates, location } = req.body;
 
+    try {
+        // Update specialist profile in Supabase
+        const { data, error } = await supabase
+            .from("specialist_profile")
+            .update({
+                full_name,
+                email,
+                speciality,
+                service_rates,
+                location,
+                updated_at: new Date(), // Track last update timestamp
+            })
+            .eq("id", id)
+            .select();
+
+        if (error) {
+            throw error;
+        }
+
+        res.json({ message: "Profile updated successfully.", data });
+    } catch (error) {
+        console.error("Error updating profile:", error.message);
+        res.status(500).json({ error: "Failed to update profile." });
+    }
+});
 
 // Get all services
 app.get("/api/services", async (req, res) => {
