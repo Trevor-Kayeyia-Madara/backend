@@ -371,45 +371,35 @@ app.get("/api/booked-dates", async (req, res) => {
  * Adds a new appointment to the database
  */
 app.post("/api/appointments", async (req, res) => {
-    const { customer_name, specialist_id, service_id, date, time, status } = req.body;
+    const { customer_name, customer_id, specialist_id, service_id, date, time, status } = req.body;
   
-    if (!customer_name || !date || !time || !status) {
-      return res.status(400).json({ error: "Customer name, date, time, and status are required" });
+    if (!customer_name || !date || !time) {
+      return res.status(400).json({ error: "Customer name, date, and time are required" });
     }
   
     try {
-      const { data, error } = await supabase
+      // Insert appointment with initial status as "Pending"
+      const { data: insertedData, error: insertError } = await supabase
         .from("appointments")
-        .insert([{ customer_name, specialist_id, service_id, date, time, status }])
+        .insert([{ customer_name, specialist_id, service_id, date, time, status: "Pending" }])
         .select();
   
-      if (error) throw error;
+      if (insertError) throw insertError;
   
-      res.status(201).json({ message: "Appointment booked successfully", appointment: data });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+      const appointmentId = insertedData[0].id;
   
-  // Update appointment status from "Pending" to "Booked"
-  app.put("/api/appointments/:id", async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-  
-    if (!status) {
-      return res.status(400).json({ error: "Status is required" });
-    }
-  
-    try {
-      const { data, error } = await supabase
+      // Update status from "Pending" to "Booked"
+      const { error: updateError } = await supabase
         .from("appointments")
-        .update({ status })
-        .eq("id", id)
-        .select();
+        .update({ status: "Booked" })
+        .eq("id", appointmentId);
   
-      if (error) throw error;
+      if (updateError) throw updateError;
   
-      res.status(200).json({ message: "Appointment status updated successfully", appointment: data });
+      res.status(201).json({
+        message: "Appointment booked successfully",
+        appointment: { ...insertedData[0], status: "Booked" },
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
