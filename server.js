@@ -12,7 +12,8 @@ app.use(express.json());
 const corsOptions = {
     origin: "https://hair-specialist.vercel.app", // Allow only your frontend
     methods: "GET,POST,PUT,DELETE",
-    allowedHeaders: "Content-Type,Authorization"
+    allowedHeaders: "Content-Type,Authorization",
+    credentials: true
 };
 
 app.use(cors(corsOptions)); // Apply CORS
