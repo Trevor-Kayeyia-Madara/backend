@@ -304,7 +304,7 @@ app.post("/api/appointments", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("appointments")
-      .insert([{ customer_id, specialist_id, service_id, date, time, status }])
+      .insert([{ customer_name, specialist_id, service_id, date, time, status }])
       .select();
 
     if (error) throw error;
