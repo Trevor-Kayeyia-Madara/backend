@@ -405,49 +405,35 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
- // Modify your backend API endpoint to properly return the appointment ID
-app.post("/api/appointments", async (req, res) => {
-    const { customer_name, specialist_id, service_id, date, time, status } = req.body;
-    
-    // Validate required fields
-    if (!customer_name || !specialist_id || !service_id || !date || !time) {
-      return res.status(400).json({ message: "Missing required fields" });
+  app.get("/api/appointments/:id", async (req, res) => {
+    const { id } = req.params;
+
+    // Validate the appointment ID
+    if (!id) {
+        return res.status(400).json({ message: "❌ Appointment ID is required." });
     }
-  
+
     try {
-      // Insert the appointment into the database
-      const { data, error } = await supabase
-        .from("appointments")
-        .insert([
-          { 
-            customer_name, 
-            specialist_id, 
-            service_id, 
-            date, 
-            time, 
-            status: status || "Pending" 
-          }
-        ])
-        .select(); // Important: Add .select() to return the inserted row(s)
-  
-      if (error) {
-        console.error("Appointment creation error:", error);
-        return res.status(500).json({ message: "Failed to create appointment" });
-      }
-      
-      // Return the complete appointment data including its ID
-      if (data && data.length > 0) {
-        console.log("Created appointment with ID:", data[0].id);
-        return res.status(201).json(data[0]); // Return the first inserted row
-      } else {
-        console.error("No data returned after insert");
-        return res.status(500).json({ message: "Appointment created but no data returned" });
-      }
+        // Fetch appointment from the database
+        const { data, error } = await supabase
+            .from("appointments")
+            .select("*")
+            .eq("id", id)
+            .single(); // Fetch a single record
+
+        if (error || !data) {
+            console.error("❌ Error fetching appointment:", error);
+            return res.status(404).json({ message: "⚠️ Appointment not found." });
+        }
+
+        // Return the appointment details
+        return res.status(200).json(data);
     } catch (error) {
-      console.error("Server error:", error);
-      return res.status(500).json({ message: "Server error" });
+        console.error("❌ Server error:", error);
+        return res.status(500).json({ message: "⚠️ Internal server error." });
     }
-  });
+});
+
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
