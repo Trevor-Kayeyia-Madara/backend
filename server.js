@@ -155,14 +155,18 @@ app.post("/api/signup", async (req, res) => {
     }
 });
 
-app.get("/api/user/profile", authenticateToken, async (req, res) => {
+app.get("/api/users/:customerId", authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = parseInt(req.params.customerId, 10);
 
-        // Fetch only customers
+        if (req.user.id !== userId) {
+            return res.status(403).json({ message: "Access denied. You can only access your own details." });
+        }
+
+        // Fetch user details and ensure userType is 'customer'
         const { data: user, error } = await supabase
             .from("users")
-            .select("id, full_name, email, userType")
+            .select("id, userType, full_name, email")
             .eq("id", userId)
             .eq("userType", "customer")
             .single();
@@ -171,10 +175,10 @@ app.get("/api/user/profile", authenticateToken, async (req, res) => {
             return res.status(404).json({ message: "Customer not found." });
         }
 
-        res.status(200).json(user);
+        return res.status(200).json(user);
     } catch (error) {
-        console.error("Fetch User Profile Error:", error);
-        res.status(500).json({ message: "Server error while fetching user profile." });
+        console.error("Error fetching customer details:", error);
+        return res.status(500).json({ message: "Internal server error." });
     }
 });
 
