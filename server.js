@@ -155,33 +155,26 @@ app.post("/api/signup", async (req, res) => {
     }
 });
 
-app.get("/api/users/:customerId", authenticateToken, async (req, res) => {
+app.get("/api/user/profile", authenticateToken, async (req, res) => {
     try {
-        const userId = parseInt(req.params.customerId, 10); // Ensure customerId is a number
+        const userId = req.user.id;
 
-        if (req.user.id !== userId) {
-            return res.status(403).json({ message: "Access denied. You can only access your own details." });
-        }
-
-        // Fetch user details and check if the userType is "customer"
+        // Fetch only customers
         const { data: user, error } = await supabase
             .from("users")
-            .select("id, userType, full_name") // Include full_name in the query
+            .select("id, full_name, email, userType")
             .eq("id", userId)
+            .eq("userType", "customer")
             .single();
 
         if (error || !user) {
-            return res.status(404).json({ message: "User not found." });
+            return res.status(404).json({ message: "Customer not found." });
         }
 
-        if (user.userType !== "customer") {
-            return res.status(403).json({ message: "Access denied. Only customers can access this route." });
-        }
-
-        return res.status(200).json({ id: user.id, full_name: user.full_name, userType: user.userType });
+        res.status(200).json(user);
     } catch (error) {
-        console.error("Error fetching customer details:", error);
-        return res.status(500).json({ message: "Internal server error." });
+        console.error("Fetch User Profile Error:", error);
+        res.status(500).json({ message: "Server error while fetching user profile." });
     }
 });
 
