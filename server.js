@@ -405,16 +405,20 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-// Get Appointment Details Route
-app.get("/api/appointments/:id", authenticateToken, async (req, res) => {
-    const { id } = req.params; // Extract the appointment ID from the URL parameters
+  app.get("/api/appointments/:id", authenticateToken, async (req, res) => {
+    const { id } = req.params; // Extract the appointment ID from the URL
+    const appointmentId = parseInt(id, 10);
+
+    if (isNaN(appointmentId)) {
+        return res.status(400).json({ message: "Invalid appointment ID." });
+    }
 
     try {
         // Fetch the appointment from Supabase by ID
         const { data, error } = await supabase
             .from("appointments")
             .select("*")
-            .eq("id", id)  // Match the appointment ID from the URL
+            .eq("id", appointmentId)  // Match the appointment ID from the URL
             .single();     // Expect a single record in the response
 
         if (error) {
