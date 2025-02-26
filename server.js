@@ -440,6 +440,23 @@ app.post("/api/appointments", async (req, res) => {
     }
 });
 
+app.get("/api/appointments/customer/:customerId", authenticateToken, async (req, res) => {
+    try {
+        const { customerId } = req.params;
+
+        const { data, error } = await supabase
+            .from("appointments")
+            .select("id, specialist_name, service, date")
+            .eq("customer_id", customerId);
+
+        if (error) throw error;
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error fetching appointments:", error);
+        res.status(500).json({ message: "Failed to retrieve appointments." });
+    }
+});
+
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
