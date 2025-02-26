@@ -157,25 +157,28 @@ app.post("/api/signup", async (req, res) => {
 
 app.get("/api/users/:customerId", authenticateToken, async (req, res) => {
     try {
-        const userId = parseInt(req.params.customerId, 10);
+        const userId = parseInt(req.params.customerId, 10); // Ensure customerId is a number
 
         if (req.user.id !== userId) {
             return res.status(403).json({ message: "Access denied. You can only access your own details." });
         }
 
-        // Fetch user details and ensure userType is 'customer'
+        // Fetch user details and check if the userType is "customer"
         const { data: user, error } = await supabase
             .from("users")
-            .select("id, userType, full_name, email")
+            .select("id, userType, full_name") // Include full_name in the query
             .eq("id", userId)
-            .eq("userType", "customer")
             .single();
 
         if (error || !user) {
-            return res.status(404).json({ message: "Customer not found." });
+            return res.status(404).json({ message: "User not found." });
         }
 
-        return res.status(200).json(user);
+        if (user.userType !== "customer") {
+            return res.status(403).json({ message: "Access denied. Only customers can access this route." });
+        }
+
+        return res.status(200).json({ id: user.id, full_name: user.full_name, userType: user.userType });
     } catch (error) {
         console.error("Error fetching customer details:", error);
         return res.status(500).json({ message: "Internal server error." });
@@ -437,41 +440,6 @@ app.post("/api/appointments", async (req, res) => {
     } catch (error) {
         console.error("❌ Server error:", error);
         return res.status(500).json({ message: "⚠️ Internal server error." });
-    }
-});
-
-app.get("/api/appointments/customer/:customerId", authenticateToken, async (req, res) => {
-    try {
-        const { customerId } = req.params;
-
-        const { data, error } = await supabase
-            .from("appointments")
-            .select("id, specialist_name, service, date")
-            .eq("customer_id", customerId);
-
-        if (error) throw error;
-        res.status(200).json(data);
-    } catch (error) {
-        console.error("Error fetching appointments:", error);
-        res.status(500).json({ message: "Failed to retrieve appointments." });
-    }
-});
-
-app.get("/api/messages/:customerId", authenticateToken, async (req, res) => {
-    try {
-        const { customerId } = req.params;
-
-        const { data, error } = await supabase
-            .from("messages")
-            .select("id, specialist_name, content, created_at")
-            .or(`sender_id.eq.${customerId},receiver_id.eq.${customerId}`)
-            .order("created_at", { ascending: false });
-
-        if (error) throw error;
-        res.status(200).json(data);
-    } catch (error) {
-        console.error("Error fetching messages:", error);
-        res.status(500).json({ message: "Failed to retrieve messages." });
     }
 });
 
