@@ -408,7 +408,7 @@ app.post("/api/appointments", async (req, res) => {
   // Get appointment details
 app.get("/api/appointments/:id", async (req, res) => {
   const { id } = req.params;
-  const appointment = await pool.query("SELECT * FROM appointments WHERE id = $1", [id]);
+  const appointment = await supabase.query("SELECT * FROM appointments WHERE id = $1", [id]);
   res.json(appointment.rows[0]);
 });
 
