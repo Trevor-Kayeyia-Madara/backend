@@ -405,46 +405,52 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-  // Add this new endpoint to your backend API
-app.get("/api/appointments/lookup", authenticateToken, async (req, res) => {
-    const { customer_name, specialist_id } = req.query;
+  // Modified endpoint to fetch appointment ID by customer_name and specialist_name
+app.get("/api/appointments/find", async (req, res) => {
+    const { customer_name, specialist_name } = req.query;
     
-    // Validate required parameters
-    if (!customer_name || !specialist_id) {
-        return res.status(400).json({ 
-            message: "Both customer_name and specialist_id are required parameters." 
-        });
+    if (!customer_name || !specialist_name) {
+        return res.status(400).json({ message: "Both customer_name and specialist_name are required." });
     }
 
     try {
-        // Fetch the appointment from Supabase based on customer_name and specialist_id
+        // First get the specialist_id from specialist_name
+        const { data: specialistData, error: specialistError } = await supabase
+            .from("specialist_profiles")
+            .select("id")
+            .eq("full_name", specialist_name)
+            .single();
+
+        if (specialistError || !specialistData) {
+            console.error("Specialist lookup error:", specialistError);
+            return res.status(404).json({ message: "Specialist not found." });
+        }
+
+        const specialist_id = specialistData.id;
+
+        // Now fetch the appointment using customer_name and specialist_id
         const { data, error } = await supabase
             .from("appointments")
             .select("id")
             .eq("customer_name", customer_name)
             .eq("specialist_id", specialist_id)
-            .order('created_at', { ascending: false }) // Get the most recent appointment first
-            .limit(1); // Get only the most recent match
+            .order('created_at', { ascending: false })
+            .limit(1);
             
         if (error) {
-            console.error("Supabase Lookup Error:", error);
-            return res.status(500).json({ message: "Error looking up appointment." });
+            console.error("Appointment lookup error:", error);
+            return res.status(500).json({ message: "Error fetching appointment." });
         }
 
-        // If no appointment is found, return a 404 response
         if (!data || data.length === 0) {
-            return res.status(404).json({ 
-                message: "No appointment found for this customer and specialist." 
-            });
+            return res.status(404).json({ message: "No appointment found." });
         }
 
-        // Return just the appointment ID
-        res.status(200).json({ appointmentId: data[0].id });
+        // Return the appointment ID
+        res.status(200).json({ id: data[0].id });
     } catch (error) {
-        console.error("Appointment Lookup Error:", error);
-        res.status(500).json({ 
-            message: "Server error while looking up appointment." 
-        });
+        console.error("Server error:", error);
+        res.status(500).json({ message: "Server error while fetching appointment." });
     }
 });
 
