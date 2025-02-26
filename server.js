@@ -406,7 +406,7 @@ app.post("/api/appointments", async (req, res) => {
   });
   
 // Get Appointment Details Route
-app.get("/appointments/:id", authenticateToken, async (req, res) => {
+app.get("/api/appointments/:id", authenticateToken, async (req, res) => {
     const { id } = req.params; // Extract the appointment ID from the URL parameters
 
     try {
