@@ -207,6 +207,29 @@ app.get("/api/user", authenticateToken, async (req, res) => {
         res.status(500).json({ message: "Failed to fetch user details." });
     }
 });
+app.put("/api/users/:customerId", authenticateToken, async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const { full_name, email } = req.body;
+
+        if (req.user.id !== parseInt(customerId)) {
+            return res.status(403).json({ message: "Unauthorized to update this profile" });
+        }
+
+        const { data, error } = await supabase
+            .from("users")
+            .update({ full_name, email })
+            .eq("id", customerId)
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json(data[0]);
+    } catch (error) {
+        console.error("Profile Update Error:", error);
+        res.status(500).json({ message: "Failed to update profile." });
+    }
+});
 
 app.get("/api/specialists", async (req, res) => {
     try {
