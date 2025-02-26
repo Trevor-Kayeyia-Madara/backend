@@ -405,54 +405,49 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-  // Modified endpoint to fetch appointment ID by customer_name and specialist_name
-app.get("/api/appointments/find", async (req, res) => {
-    const { customer_name, specialist_name } = req.query;
+ // Modify your backend API endpoint to properly return the appointment ID
+app.post("/api/appointments", async (req, res) => {
+    const { customer_name, specialist_id, service_id, date, time, status } = req.body;
     
-    if (!customer_name || !specialist_name) {
-        return res.status(400).json({ message: "Both customer_name and specialist_name are required." });
+    // Validate required fields
+    if (!customer_name || !specialist_id || !service_id || !date || !time) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
-
+  
     try {
-        // First get the specialist_id from specialist_name
-        const { data: specialistData, error: specialistError } = await supabase
-            .from("specialist_profiles")
-            .select("id")
-            .eq("full_name", specialist_name)
-            .single();
-
-        if (specialistError || !specialistData) {
-            console.error("Specialist lookup error:", specialistError);
-            return res.status(404).json({ message: "Specialist not found." });
-        }
-
-        const specialist_id = specialistData.id;
-
-        // Now fetch the appointment using customer_name and specialist_id
-        const { data, error } = await supabase
-            .from("appointments")
-            .select("id")
-            .eq("customer_name", customer_name)
-            .eq("specialist_id", specialist_id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-            
-        if (error) {
-            console.error("Appointment lookup error:", error);
-            return res.status(500).json({ message: "Error fetching appointment." });
-        }
-
-        if (!data || data.length === 0) {
-            return res.status(404).json({ message: "No appointment found." });
-        }
-
-        // Return the appointment ID
-        res.status(200).json({ id: data[0].id });
+      // Insert the appointment into the database
+      const { data, error } = await supabase
+        .from("appointments")
+        .insert([
+          { 
+            customer_name, 
+            specialist_id, 
+            service_id, 
+            date, 
+            time, 
+            status: status || "Pending" 
+          }
+        ])
+        .select(); // Important: Add .select() to return the inserted row(s)
+  
+      if (error) {
+        console.error("Appointment creation error:", error);
+        return res.status(500).json({ message: "Failed to create appointment" });
+      }
+      
+      // Return the complete appointment data including its ID
+      if (data && data.length > 0) {
+        console.log("Created appointment with ID:", data[0].id);
+        return res.status(201).json(data[0]); // Return the first inserted row
+      } else {
+        console.error("No data returned after insert");
+        return res.status(500).json({ message: "Appointment created but no data returned" });
+      }
     } catch (error) {
-        console.error("Server error:", error);
-        res.status(500).json({ message: "Server error while fetching appointment." });
+      console.error("Server error:", error);
+      return res.status(500).json({ message: "Server error" });
     }
-});
+  });
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
