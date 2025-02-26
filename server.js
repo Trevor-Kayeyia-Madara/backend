@@ -405,43 +405,46 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-  app.get("/api/appointments/:id", authenticateToken, async (req, res) => {
-    const { id } = req.params; // Extract the appointment ID from the URL
-    const appointmentId = parseInt(id, 10);
-
-    console.log("Extracted Appointment ID:", appointmentId); // Log the appointmentId
-
-    if (isNaN(appointmentId)) {
-        return res.status(400).json({ message: "Invalid appointment ID." });
+  // Add this new endpoint to your backend API
+app.get("/api/appointments/lookup", authenticateToken, async (req, res) => {
+    const { customer_name, specialist_id } = req.query;
+    
+    // Validate required parameters
+    if (!customer_name || !specialist_id) {
+        return res.status(400).json({ 
+            message: "Both customer_name and specialist_id are required parameters." 
+        });
     }
 
     try {
-        // Fetch the appointment from Supabase by ID
+        // Fetch the appointment from Supabase based on customer_name and specialist_id
         const { data, error } = await supabase
             .from("appointments")
-            .select("id, customer_name, specialist_id, service_id, date, time, status, created_at") // You can specify the fields to fetch
-            .eq("id", appointmentId)  // Match the appointment ID from the URL
-            .single(); // Expect a single record in the response
-
-        // Log the data and error to check the response
-        console.log("Fetched Data:", data);
-        console.log("Supabase Error:", error);
-
+            .select("id")
+            .eq("customer_name", customer_name)
+            .eq("specialist_id", specialist_id)
+            .order('created_at', { ascending: false }) // Get the most recent appointment first
+            .limit(1); // Get only the most recent match
+            
         if (error) {
-            console.error("Supabase Get Error:", error);
-            return res.status(500).json({ message: "Error fetching appointment details." });
+            console.error("Supabase Lookup Error:", error);
+            return res.status(500).json({ message: "Error looking up appointment." });
         }
 
         // If no appointment is found, return a 404 response
-        if (!data) {
-            return res.status(404).json({ message: "Appointment not found." });
+        if (!data || data.length === 0) {
+            return res.status(404).json({ 
+                message: "No appointment found for this customer and specialist." 
+            });
         }
 
-        // Return the appointment details
-        res.status(200).json({ data });
+        // Return just the appointment ID
+        res.status(200).json({ appointmentId: data[0].id });
     } catch (error) {
-        console.error("Get Appointment Error:", error);
-        res.status(500).json({ message: "Server error while fetching appointment details." });
+        console.error("Appointment Lookup Error:", error);
+        res.status(500).json({ 
+            message: "Server error while looking up appointment." 
+        });
     }
 });
 
