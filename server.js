@@ -405,41 +405,33 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-// Update Appointment Route
-app.put("/appointments/:id", authenticateToken, async (req, res) => {
+// Get Appointment Details Route
+app.get("/appointments/:id", authenticateToken, async (req, res) => {
     const { id } = req.params; // Extract the appointment ID from the URL parameters
-    const { status, specialist_id, customer_id, appointment_date, notes } = req.body;
-
-    // Validate if all necessary fields are provided
-    if (!status || !specialist_id || !customer_id || !appointment_date) {
-        return res.status(400).json({ message: "All fields (status, specialist_id, customer_id, appointment_date) are required." });
-    }
 
     try {
-        // Update the appointment in Supabase
+        // Fetch the appointment from Supabase by ID
         const { data, error } = await supabase
             .from("appointments")
-            .update({
-                status,              // New appointment status
-                specialist_id,       // Specialist ID
-                customer_id,         // Customer ID
-                appointment_date,    // New appointment date
-                notes,               // Any additional notes
-                updated_at: new Date() // Track last update timestamp
-            })
+            .select("*")
             .eq("id", id)  // Match the appointment ID from the URL
-            .select();
+            .single();     // Expect a single record in the response
 
         if (error) {
-            console.error("Supabase Update Error:", error);
-            return res.status(500).json({ message: "Error updating appointment." });
+            console.error("Supabase Get Error:", error);
+            return res.status(500).json({ message: "Error fetching appointment details." });
         }
 
-        // Return the updated appointment data
-        res.status(200).json({ message: "Appointment updated successfully.", data });
+        // If no appointment is found, return a 404 response
+        if (!data) {
+            return res.status(404).json({ message: "Appointment not found." });
+        }
+
+        // Return the appointment details
+        res.status(200).json({ data });
     } catch (error) {
-        console.error("Update Appointment Error:", error);
-        res.status(500).json({ message: "Server error while updating appointment." });
+        console.error("Get Appointment Error:", error);
+        res.status(500).json({ message: "Server error while fetching appointment details." });
     }
 });
 
