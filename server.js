@@ -409,6 +409,8 @@ app.post("/api/appointments", async (req, res) => {
     const { id } = req.params; // Extract the appointment ID from the URL
     const appointmentId = parseInt(id, 10);
 
+    console.log("Extracted Appointment ID:", appointmentId); // Log the appointmentId
+
     if (isNaN(appointmentId)) {
         return res.status(400).json({ message: "Invalid appointment ID." });
     }
@@ -417,9 +419,13 @@ app.post("/api/appointments", async (req, res) => {
         // Fetch the appointment from Supabase by ID
         const { data, error } = await supabase
             .from("appointments")
-            .select("*")
+            .select("id, customer_name, specialist_id, service_id, date, time, status, created_at") // You can specify the fields to fetch
             .eq("id", appointmentId)  // Match the appointment ID from the URL
-            .single();     // Expect a single record in the response
+            .single(); // Expect a single record in the response
+
+        // Log the data and error to check the response
+        console.log("Fetched Data:", data);
+        console.log("Supabase Error:", error);
 
         if (error) {
             console.error("Supabase Get Error:", error);
@@ -438,7 +444,6 @@ app.post("/api/appointments", async (req, res) => {
         res.status(500).json({ message: "Server error while fetching appointment details." });
     }
 });
-
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
