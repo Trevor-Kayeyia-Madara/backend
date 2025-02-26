@@ -457,6 +457,24 @@ app.get("/api/appointments/customer/:customerId", authenticateToken, async (req,
     }
 });
 
+app.get("/api/messages/:customerId", authenticateToken, async (req, res) => {
+    try {
+        const { customerId } = req.params;
+
+        const { data, error } = await supabase
+            .from("messages")
+            .select("id, specialist_name, content, created_at")
+            .or(`sender_id.eq.${customerId},receiver_id.eq.${customerId}`)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ message: "Failed to retrieve messages." });
+    }
+});
+
 
 // ✅ **Real-time chat setup**
 io.on("connection", (socket) => {
