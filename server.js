@@ -358,6 +358,27 @@ app.post("/api/appointments", authenticateToken, async (req, res) => {
     res.status(201).json({ message: "Appointment booked successfully!", appointment });
 });
 
+app.put("/api/appointments/:id/update-status", authenticateToken, async (req, res) => {
+    const appointmentId = parseInt(req.params.id, 10);
+    const { status } = req.body;
+
+    if (!appointmentId || !status) {
+        return res.status(400).json({ error: "Invalid appointment ID or status" });
+    }
+
+    const { data, error } = await supabase
+        .from("appointments")
+        .update({ status })
+        .eq("id", appointmentId)
+        .select();
+
+    if (error) {
+        return res.status(500).json({ error: "Failed to update appointment status." });
+    }
+
+    res.json({ message: "Appointment status updated successfully.", data });
+});
+
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
