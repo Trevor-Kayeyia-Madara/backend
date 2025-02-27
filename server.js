@@ -204,7 +204,7 @@ app.patch("/api/specialists/:id", async (req, res) => {
     res.json({ message: "Profile updated successfully.", data });
 });
 
-// ✅ Fetch Services for a Specific Specialist
+// ✅ Fetch Services by Speciality
 app.get("/api/specialists/:id/services", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
 
@@ -212,17 +212,30 @@ app.get("/api/specialists/:id/services", async (req, res) => {
         return res.status(400).json({ error: "Invalid specialist ID" });
     }
 
-    const { data, error } = await supabase
-        .from("services")
-        .select("*")
-        .eq("specialist_id", specialistId);
+    // Fetch the specialist's speciality
+    const { data: specialist, error: specialistError } = await supabase
+        .from("specialist_profile")
+        .select("speciality")
+        .eq("id", specialistId)
+        .single();
 
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    if (specialistError || !specialist) {
+        return res.status(404).json({ error: "Specialist not found." });
     }
 
-    res.status(200).json(data);
+    // Fetch services based on the speciality_id
+    const { data: services, error: servicesError } = await supabase
+        .from("services")
+        .select("*")
+        .eq("speciality_id", specialistId); // Match services with the speciality_id
+
+    if (servicesError) {
+        return res.status(500).json({ error: servicesError.message });
+    }
+
+    res.status(200).json(services);
 });
+
 
 
 // ✅ Fetch Booked Dates
