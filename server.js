@@ -10,20 +10,11 @@ const http = require("http"); // Import HTTP module
 const app = express(); // Initialize Express first
 const server = http.createServer(app); // Create HTTP server after initializing app
 
-// ✅ Configure CORS to allow WebSocket connections
-const io = new Server(server, {
-    cors: {
-      origin: "https://hair-specialist.vercel.app", // Your frontend domain
-      methods: ["GET", "POST"],
-      credentials: true
-    },
-  });
-
 app.use(express.json());
 // Configure CORS to allow your frontend domain
 const corsOptions = {
     origin: "https://hair-specialist.vercel.app", // Allow only your frontend
-    methods: "GET,POST,PUT,DELETE",
+    methods: "GET,POST,PUT,DELETE,PATCH",
     allowedHeaders: "Content-Type,Authorization",
     credentials: true
 };
@@ -310,7 +301,7 @@ app.get("/api/specialists/:id", async (req, res) => {
     }
 });
 
-app.put("/api/specialists/:id", async (req, res) => {
+app.patch("/api/specialists/:id", async (req, res) => {
     const id = parseInt(req.params.id); // Ensure ID is an integer
     const { full_name, email, speciality, service_rates, location } = req.body;
 
