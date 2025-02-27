@@ -264,26 +264,30 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 });
 
 
-
-// ✅ Fetch Appointment Details by Appointment ID
 app.get("/api/appointments/:appointmentId", async (req, res) => {
-    const { appointmentId } = req.params;  // Get appointmentId from URL params
+    const { appointmentId } = req.params;
 
     try {
-        const response = await fetch(`https://backend-es6y.onrender.com/api/appointments/${appointmentId}`);
-        const appointmentData = await response.json();
+        const { data: appointment, error } = await supabase
+            .from("appointments")
+            .select("id, customer_id, customer_name, specialist_name, service (name, price), date, time")
+            .eq("id", appointmentId)
+            .single();  // ✅ Fetch only one record
 
-        if (!response.ok) {
-            return res.status(404).json({ error: "Appointment not found" });
+        if (error || !appointment) {
+            return res.status(404).json({ error: "Appointment not found." });
         }
 
-        // Return the appointment data
-        res.json(appointmentData);
+        if (!appointment.customer_id) {
+            return res.status(500).json({ error: "customer_id is missing from response." });
+        }
+
+        res.json(appointment);
     } catch (error) {
+        console.error("Error fetching appointment:", error);
         return res.status(500).json({ error: error.message || "Error fetching appointment details." });
     }
 });
-
 // ✅ Book an Appointment
 app.post("/api/appointments", authenticateToken, async (req, res) => {
     const { customer_name, specialist_id, service_id, date, time } = req.body;
