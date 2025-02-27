@@ -2,41 +2,28 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
-const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const { createClient } = require("@supabase/supabase-js");
-const http = require("http"); // Import HTTP module
 
-const app = express(); // Initialize Express first
-const server = http.createServer(app); // Create HTTP server after initializing app
+const app = express();
 
-// ✅ Configure CORS to allow WebSocket connections
-const io = new Server(server, {
-    cors: {
-      origin: "https://hair-specialist.vercel.app", // Your frontend domain
-      methods: ["GET", "POST"],
-      credentials: true
-    },
-  });
-
-app.use(express.json());
-// Configure CORS to allow your frontend domain
+// ✅ Configure CORS
 const corsOptions = {
-    origin: "https://hair-specialist.vercel.app", // Allow only your frontend
+    origin: "https://hair-specialist.vercel.app",
     methods: "GET,POST,PUT,DELETE,PATCH",
     allowedHeaders: "Content-Type,Authorization",
     credentials: true
 };
+app.use(cors(corsOptions));
+app.use(express.json());
 
-app.use(cors(corsOptions)); // Apply CORS
-
-// Supabase Config
+// ✅ Supabase Config
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// Secret Key for JWT
+// ✅ JWT Secret Key
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Middleware to authenticate token
+// ✅ Middleware to Authenticate Token
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -48,565 +35,190 @@ const authenticateToken = (req, res, next) => {
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) return res.status(403).json({ message: "Invalid token" });
 
-        req.user = user; // Attach user info to request
+        req.user = user;
         next();
     });
 };
 
-// Validate Session Route
+// ✅ Validate Session
 app.get("/api/validate-session", authenticateToken, (req, res) => {
     res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
-// Login Route
+
+// ✅ User Login
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
-
     if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required." });
     }
 
-    // Fetch user from Supabase
     const { data: user, error } = await supabase
         .from("users")
         .select("id, email, password, userType")
         .eq("email", email)
         .single();
 
-    if (error || !user) {
-        return res.status(401).json({ message: "Invalid email or user not found." });
+    if (error || !user || password !== user.password) {
+        return res.status(401).json({ message: "Invalid credentials." });
     }
 
-    console.log("Stored password in DB:", user.password);  // Debugging
-
-    // Compare passwords (no hashing)
-    if (password !== user.password) {
-        return res.status(401).json({ message: "Invalid password." });
-    }
-
-    // Generate JWT Token
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "2h" });
-
     res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
 
-// Update Password Route (Protected)
-app.put("/api/update-password", authenticateToken, async (req, res) => {
-    const { newPassword } = req.body;
-
-    if (!newPassword) {
-        return res.status(400).json({ message: "New password is required." });
-    }
-
-    try {
-        const userId = req.user.id;
-
-        // Hash the new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update the user's password in Supabase
-        const { error } = await supabase
-            .from("users")
-            .update({ password: hashedPassword })
-            .eq("id", userId);
-
-        if (error) {
-            console.error("Supabase Update Error:", error);
-            return res.status(500).json({ message: "Error updating password." });
-        }
-
-        res.status(200).json({ message: "Password updated successfully." });
-    } catch (error) {
-        console.error("Update Password Error:", error);
-        res.status(500).json({ message: "Server error while updating password." });
-    }
-});
-// Signup Route
+// ✅ User Signup
 app.post("/api/signup", async (req, res) => {
     const { full_name, email, password, userType } = req.body;
-
     if (!full_name || !email || !password || !userType) {
         return res.status(400).json({ message: "All fields are required." });
     }
 
-    try {
-        // Check if user already exists
-        const { data: existingUser, error: existingError } = await supabase
-            .from("users")
-            .select("email")
-            .eq("email", email)
-            .single();
+    const { data: existingUser } = await supabase
+        .from("users")
+        .select("email")
+        .eq("email", email)
+        .single();
 
-        if (existingUser) {
-            return res.status(400).json({ message: "Email already registered." });
-        }
-
-        // Insert new user into Supabase (plaintext password)
-        const { data: newUser, error: insertError } = await supabase
-            .from("users")
-            .insert([{ full_name, email, password, userType }]) // Password is stored as plaintext
-            .select("id, email, userType")
-            .single();
-
-        if (insertError) {
-            console.error("Supabase Insert Error:", insertError);
-            return res.status(500).json({ message: "Error creating user." });
-        }
-
-        // Generate JWT Token
-        const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
-
-        res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
-
-    } catch (error) {
-        console.error("Signup Error:", error);
-        res.status(500).json({ message: "Server error during signup." });
+    if (existingUser) {
+        return res.status(400).json({ message: "Email already registered." });
     }
+
+    const { data: newUser, error } = await supabase
+        .from("users")
+        .insert([{ full_name, email, password, userType }])
+        .select("id, email, userType")
+        .single();
+
+    if (error) {
+        return res.status(500).json({ message: "Error creating user." });
+    }
+
+    const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
+    res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
 });
 
-app.get("/api/users/:customerId", authenticateToken, async (req, res) => {
-    try {
-        const userId = parseInt(req.params.customerId, 10); // Ensure customerId is a number
+// ✅ Fetch User by ID
+app.get("/api/users/:id", authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    const { data: user, error } = await supabase
+        .from("users")
+        .select("id, full_name, email, userType")
+        .eq("id", userId)
+        .single();
 
-        if (req.user.id !== userId) {
-            return res.status(403).json({ message: "Access denied. You can only access your own details." });
-        }
-
-        // Fetch user details and check if the userType is "customer"
-        const { data: user, error } = await supabase
-            .from("users")
-            .select("id, userType, full_name") // Include full_name in the query
-            .eq("id", userId)
-            .single();
-
-        if (error || !user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        if (user.userType !== "customer") {
-            return res.status(403).json({ message: "Access denied. Only customers can access this route." });
-        }
-
-        return res.status(200).json({ id: user.id, full_name: user.full_name, userType: user.userType });
-    } catch (error) {
-        console.error("Error fetching customer details:", error);
-        return res.status(500).json({ message: "Internal server error." });
+    if (error || !user) {
+        return res.status(404).json({ message: "User not found." });
     }
+
+    res.status(200).json(user);
 });
 
+// ✅ Fetch Customer by ID
+app.get("/api/customers/:id", authenticateToken, async (req, res) => {
+    const customerId = parseInt(req.params.id, 10);
+    const { data: customer, error } = await supabase
+        .from("customers")
+        .select("user_id, phone_number, address")
+        .eq("user_id", customerId)
+        .single();
 
-// Get User Route (Protected)
-app.get("/api/user", authenticateToken, async (req, res) => {
-    try {
-        const userId = req.user.id;
-
-        // Fetch user details from Supabase
-        const { data: user, error } = await supabase
-            .from("users")
-            .select("id, email, userType")
-            .eq("id", userId)
-            .single();
-
-        if (error || !user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        res.status(200).json(user);
-    } catch (error) {
-        res.status(500).json({ message: "Failed to fetch user details." });
+    if (error || !customer) {
+        return res.status(404).json({ error: "Customer not found." });
     }
+
+    res.status(200).json(customer);
 });
 
-app.get("/api/specialists", async (req, res) => {
-    try {
-        const { search } = req.query; // Get search query
-
-        let query = supabase
-            .from("specialist_profile")
-            .select("id, speciality, service_rates, rating, location, created_at, users!inner (full_name)")
-            .order("id", { ascending: true });
-
-        // Apply search filter if present
-        if (search) {
-            query = query.or(`speciality.ilike.%${search}%,location.ilike.%${search}%`);
-        }
-
-        const { data: specialists, error } = await query;
-
-        if (error) {
-            return res.status(500).json({ message: "Error fetching specialists.", error });
-        }
-
-        // Format response
-        const formattedSpecialists = specialists.map(spec => ({
-            id: spec.id,
-            speciality: spec.speciality,
-            service_rates: spec.service_rates,
-            rating: spec.rating,
-            location: spec.location,
-            created_at: spec.created_at,
-            full_name: spec.users?.full_name
-        }));
-
-        res.status(200).json(formattedSpecialists);
-    } catch (error) {
-        res.status(500).json({ message: "Server error while fetching specialists." });
-    }
-});
-
-
+// ✅ Fetch Specialist Profile
 app.get("/api/specialists/:id", async (req, res) => {
-    const { id } = req.params;
+    const specialistId = parseInt(req.params.id, 10);
+    const { data: specialist, error } = await supabase
+        .from("specialist_profile")
+        .select("id, user_id, speciality, service_rates, location, rating")
+        .eq("id", specialistId)
+        .single();
 
-    // Convert id to an integer if necessary
-    const specialistId = parseInt(id, 10);
-    if (isNaN(specialistId)) {
-        return res.status(400).json({ error: "Invalid specialist ID" });
+    if (error || !specialist) {
+        return res.status(404).json({ error: "Specialist profile not found." });
     }
 
-    try {
-        // Step 1: Find the specialist profile using `id` from specialist_profile table
-        const { data: specialistProfile, error: profileError } = await supabase
-            .from("specialist_profile")
-            .select("id, user_id, speciality, service_rates, location, rating, created_at")
-            .eq("id", specialistId) // Fetch using the specialist_profile ID
-            .single();
-
-        if (profileError || !specialistProfile) {
-            return res.status(404).json({ error: "Specialist profile not found." });
-        }
-
-        // Extract user_id from specialistProfile
-        const userId = specialistProfile.user_id;
-
-        // Step 2: Fetch the user details (name, email) using user_id
-        const { data: user, error: userError } = await supabase
-            .from("users")
-            .select("id, full_name, email, userType, created_at")
-            .eq("id", userId)
-            .single();
-
-        if (userError || !user) {
-            return res.status(404).json({ error: "User not found." });
-        }
-
-        // Step 3: Combine user details with specialist profile data
-        const responseData = {
-            specialistId: specialistProfile.id, // Specialist ID from specialist_profile table
-            userId: user.id, // User ID from users table
-            full_name: user.full_name,
-            email: user.email,
-            userType: user.userType,
-            created_at: user.created_at,
-            speciality: specialistProfile.speciality,
-            service_rates: specialistProfile.service_rates,
-            location: specialistProfile.location,
-            rating: specialistProfile.rating,
-        };
-
-        res.json(responseData);
-    } catch (error) {
-        console.error("Error fetching specialist profile:", error);
-        res.status(500).json({ error: "Internal server error." });
-    }
+    res.json(specialist);
 });
 
+// ✅ Update Specialist Profile
 app.patch("/api/specialists/:id", async (req, res) => {
-    const id = parseInt(req.params.id); // Ensure ID is an integer
+    const id = parseInt(req.params.id);
     const { full_name, email, speciality, service_rates, location } = req.body;
 
     if (!id || isNaN(id)) {
         return res.status(400).json({ error: "Invalid specialist ID." });
     }
 
-    try {
-        const { data, error } = await supabase
-            .from("specialist_profile")
-            .update({
-                full_name,
-                email,
-                speciality,
-                service_rates,
-                location,
-                updated_at: new Date(),
-            })
-            .eq("id", id)
-            .select();
+    const { data, error } = await supabase
+        .from("specialist_profile")
+        .update({ full_name, email, speciality, service_rates, location, updated_at: new Date() })
+        .eq("id", id)
+        .select();
 
-        if (error) {
-            console.error("Supabase error:", error);
-            return res.status(500).json({ error: "Failed to update profile." });
-        }
-
-        if (!data.length) {
-            return res.status(404).json({ error: "Specialist not found." });
-        }
-
-        res.json({ message: "Profile updated successfully.", data });
-    } catch (err) {
-        console.error("Error updating profile:", err);
-        res.status(500).json({ error: "Internal server error." });
+    if (error) {
+        return res.status(500).json({ error: "Failed to update profile." });
     }
+
+    res.json({ message: "Profile updated successfully.", data });
 });
 
-app.get("/api/customers/:id", authenticateToken, async (req, res) => {
-    const customerId = parseInt(req.params.id, 10);
-
-    if (isNaN(customerId)) {
-        return res.status(400).json({ error: "Invalid customer ID." });
-    }
-
-    try {
-        // Fetch customer details from Supabase
-        const { data: customer, error } = await supabase
-            .from("users")
-            .select("id, full_name, email, userType, created_at")
-            .eq("id", customerId)
-            .single();
-
-        if (error || !customer) {
-            return res.status(404).json({ error: "Customer not found." });
-        }
-
-        if (customer.userType !== "customer") {
-            return res.status(403).json({ error: "Access denied. Not a customer." });
-        }
-
-        res.status(200).json(customer);
-    } catch (error) {
-        console.error("Error fetching customer details:", error);
-        res.status(500).json({ error: "Internal server error." });
-    }
-});
-
-
+// ✅ Fetch Services
 app.get("/api/services", async (req, res) => {
     const { specialistId } = req.query;
-  
     if (!specialistId) {
-      return res.status(400).json({ error: "Specialist ID is required" });
+        return res.status(400).json({ error: "Specialist ID is required" });
     }
-  
-    try {
-      const { data, error } = await supabase
+
+    const { data, error } = await supabase
         .from("services")
         .select("*")
-        .eq("specialist_id", specialistId); // Filter by specialist_id
-  
-      if (error) throw error;
-  
-      res.json(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+        .eq("specialist_id", specialistId);
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
-  });
-  
 
-/** 
- * Get Booked Dates
- * Fetches all appointments and returns booked dates
- */
+    res.json(data);
+});
+
+// ✅ Fetch Booked Dates
 app.get("/api/booked-dates", async (req, res) => {
-  try {
     const { data, error } = await supabase
-      .from("appointments")
-      .select("date");
+        .from("appointments")
+        .select("date");
 
-    if (error) throw error;
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
 
     const bookedDates = data.map((appointment) => appointment.date);
     res.json(bookedDates);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 });
 
-/**
- * Create Appointment
- * Adds a new appointment to the database
- */
+// ✅ Create Appointment
 app.post("/api/appointments", async (req, res) => {
-    const { customer_name, customer_id, specialist_id, service_id, date, time, status } = req.body;
-  
+    const { customer_name, specialist_id, service_id, date, time } = req.body;
     if (!customer_name || !date || !time) {
-      return res.status(400).json({ error: "Customer name, date, and time are required" });
+        return res.status(400).json({ error: "Customer name, date, and time are required" });
     }
-  
-    try {
-      // Insert appointment with initial status as "Pending"
-      const { data: insertedData, error: insertError } = await supabase
+
+    const { data, error } = await supabase
         .from("appointments")
         .insert([{ customer_name, specialist_id, service_id, date, time, status: "Pending" }])
         .select();
-  
-      if (insertError) throw insertError;
-  
-      const appointmentId = insertedData[0].id;
-  
-      // Update status from "Pending" to "Booked"
-      const { error: updateError } = await supabase
-        .from("appointments")
-        .update({ status: "Booked" })
-        .eq("id", appointmentId);
-  
-      if (updateError) throw updateError;
-  
-      res.status(201).json({
-        message: "Appointment booked successfully",
-        appointment: { ...insertedData[0], status: "Booked" },
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-  
- // ✅ Get all appointments for a specific specialist
-app.get("/api/appointments/specialist/:specialistId", async (req, res) => {
-    const { specialistId } = req.params;
 
-    if (!specialistId) {
-        return res.status(400).json({ error: "Specialist ID is required." });
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
 
-    try {
-        // Fetch appointments from the database
-        const { data, error } = await supabase
-            .from("appointments")
-            .select("id, customer_name, date, time, status, service_id")
-            .eq("specialist_id", specialistId) // ✅ Ensure this matches the DB field
-            .order("date", { ascending: true });
-
-        if (error) throw error;
-
-        if (data.length === 0) {
-            return res.status(404).json({ message: "No appointments found for this specialist." });
-        }
-
-        res.status(200).json(data);
-    } catch (error) {
-        console.error("Error fetching specialist appointments:", error);
-        res.status(500).json({ error: "Failed to fetch appointments." });
-    }
+    res.status(201).json({ message: "Appointment booked successfully", appointment: data[0] });
 });
 
-
-  app.get("/api/appointments/:id", async (req, res) => {
-    const { id } = req.params;
-
-    // Validate the appointment ID
-    if (!id) {
-        return res.status(400).json({ message: "❌ Appointment ID is required." });
-    }
-
-    try {
-        // Fetch appointment from the database
-        const { data, error } = await supabase
-            .from("appointments")
-            .select("*")
-            .eq("id", id)
-            .single(); // Fetch a single record
-
-        if (error || !data) {
-            console.error("❌ Error fetching appointment:", error);
-            return res.status(404).json({ message: "⚠️ Appointment not found." });
-        }
-
-        // Return the appointment details
-        return res.status(200).json(data);
-    } catch (error) {
-        console.error("❌ Server error:", error);
-        return res.status(500).json({ message: "⚠️ Internal server error." });
-    }
-});
-
-// Server Listening
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// ✅ Real-time chat setup with Socket.io
-io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
-
-    // Handle user joining a chat room
-    socket.on("joinRoom", ({ customerId, specialistId }) => {
-        const roomId = [customerId, specialistId].sort().join("_");
-        socket.join(roomId);
-        console.log(`User joined room: ${roomId}`);
-    });
-
-    // Handle sending messages
-    socket.on("sendMessage", async ({ senderId, receiverId, message }) => {
-        const roomId = [senderId, receiverId].sort().join("_");
-
-        try {
-            const { data, error } = await supabase
-                .from("messages")
-                .insert([{ sender_id: senderId, receiver_id: receiverId, content: message }])
-                .select();
-
-            if (error) {
-                console.error("Error saving message:", error);
-                return;
-            }
-
-            // Emit the message to the room
-            io.to(roomId).emit("receiveMessage", {
-                senderId,
-                receiverId,
-                message,
-                timestamp: new Date().toISOString()
-            });
-
-        } catch (error) {
-            console.error("Chat Error:", error);
-        }
-    });
-
-    // Handle disconnect
-    socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
-    });
-});
-
-// ✅ Fetch Chat History
-app.get("/api/chat/:customerId/:specialistId", authenticateToken, async (req, res) => {
-    const { customerId, specialistId } = req.params;
-
-    try {
-        const { data, error } = await supabase
-            .from("messages")
-            .select("*")
-            .or(`sender_id.eq.${customerId},receiver_id.eq.${customerId}`)
-            .or(`sender_id.eq.${specialistId},receiver_id.eq.${specialistId}`)
-            .order("created_at", { ascending: true });
-
-        if (error) throw error;
-
-        res.status(200).json(data);
-    } catch (error) {
-        console.error("Error fetching chat history:", error);
-        res.status(500).json({ error: "Failed to retrieve chat messages." });
-    }
-});
-
-// ✅ Send a Message API
-app.post("/api/chat/send", authenticateToken, async (req, res) => {
-    const { senderId, receiverId, content } = req.body;
-
-    if (!senderId || !receiverId || !content.trim()) {
-        return res.status(400).json({ error: "All fields are required." });
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from("messages")
-            .insert([{ sender_id: senderId, receiver_id: receiverId, content }])
-            .select();
-
-        if (error) throw error;
-
-        res.status(201).json({ message: "Message sent successfully.", data });
-    } catch (error) {
-        console.error("Error sending message:", error);
-        res.status(500).json({ error: "Failed to send message." });
-    }
-});
