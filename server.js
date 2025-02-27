@@ -414,8 +414,8 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
-  // ✅ Get all appointments for a specific specialist
-app.get("/api/appointments/specialist/:id", async (req, res) => {
+ // ✅ Get all appointments for a specific specialist
+app.get("/api/appointments/specialist/:specialistId", async (req, res) => {
     const { specialistId } = req.params;
 
     if (!specialistId) {
@@ -423,11 +423,11 @@ app.get("/api/appointments/specialist/:id", async (req, res) => {
     }
 
     try {
-        // Fetch appointments for the given specialist
+        // Fetch appointments from the database
         const { data, error } = await supabase
             .from("appointments")
             .select("id, customer_name, date, time, status, service_id")
-            .eq("specialist_id", specialistId) // Filter by specialist_id
+            .eq("specialist_id", specialistId) // ✅ Ensure this matches the DB field
             .order("date", { ascending: true });
 
         if (error) throw error;
@@ -442,6 +442,7 @@ app.get("/api/appointments/specialist/:id", async (req, res) => {
         res.status(500).json({ error: "Failed to fetch appointments." });
     }
 });
+
 
   app.get("/api/appointments/:id", async (req, res) => {
     const { id } = req.params;
