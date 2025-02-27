@@ -129,6 +129,20 @@ app.get("/api/customers/:id", authenticateToken, async (req, res) => {
     res.status(200).json(customer);
 });
 
+// ✅ Fetch All Specialists
+app.get("/api/specialists", async (req, res) => {
+    const { data: specialists, error } = await supabase
+        .from("specialist_profile")
+        .select("*"); // ✅ Fetches all specialists
+
+    if (error) {
+        return res.status(500).json({ error: "Failed to fetch specialists." });
+    }
+
+    res.status(200).json(specialists);
+});
+
+
 // ✅ Fetch Specialist Profile
 app.get("/api/specialists/:id", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
