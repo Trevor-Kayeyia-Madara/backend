@@ -310,14 +310,15 @@ app.get("/api/specialists/:id", async (req, res) => {
     }
 });
 
- // Update Specialist Profile
-// Update specialist profile
 app.put("/api/specialists/:id", async (req, res) => {
-    const { id } = req.params;
+    const id = parseInt(req.params.id); // Ensure ID is an integer
     const { full_name, email, speciality, service_rates, location } = req.body;
 
+    if (!id || isNaN(id)) {
+        return res.status(400).json({ error: "Invalid specialist ID." });
+    }
+
     try {
-        // Update specialist profile in Supabase
         const { data, error } = await supabase
             .from("specialist_profile")
             .update({
@@ -326,21 +327,27 @@ app.put("/api/specialists/:id", async (req, res) => {
                 speciality,
                 service_rates,
                 location,
-                updated_at: new Date(), // Track last update timestamp
+                updated_at: new Date(),
             })
             .eq("id", id)
             .select();
 
         if (error) {
-            throw error;
+            console.error("Supabase error:", error);
+            return res.status(500).json({ error: "Failed to update profile." });
+        }
+
+        if (!data.length) {
+            return res.status(404).json({ error: "Specialist not found." });
         }
 
         res.json({ message: "Profile updated successfully.", data });
-    } catch (error) {
-        console.error("Error updating profile:", error.message);
-        res.status(500).json({ error: "Failed to update profile." });
+    } catch (err) {
+        console.error("Error updating profile:", err);
+        res.status(500).json({ error: "Internal server error." });
     }
 });
+
 
 app.get("/api/services", async (req, res) => {
     const { specialistId } = req.query;
