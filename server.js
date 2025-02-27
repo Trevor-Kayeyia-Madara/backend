@@ -204,11 +204,12 @@ app.patch("/api/specialists/:id", async (req, res) => {
     res.json({ message: "Profile updated successfully.", data });
 });
 
-// ✅ Fetch Services
-app.get("/api/services", async (req, res) => {
-    const { specialistId } = req.query;
+// ✅ Fetch Services for a Specific Specialist
+app.get("/api/specialists/:id/services", async (req, res) => {
+    const specialistId = parseInt(req.params.id, 10);
+
     if (!specialistId) {
-        return res.status(400).json({ error: "Specialist ID is required" });
+        return res.status(400).json({ error: "Invalid specialist ID" });
     }
 
     const { data, error } = await supabase
@@ -220,8 +221,9 @@ app.get("/api/services", async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 
-    res.json(data);
+    res.status(200).json(data);
 });
+
 
 // ✅ Fetch Booked Dates
 app.get("/api/booked-dates", async (req, res) => {
