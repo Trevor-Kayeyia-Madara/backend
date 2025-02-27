@@ -348,6 +348,36 @@ app.patch("/api/specialists/:id", async (req, res) => {
     }
 });
 
+app.get("/api/customers/:id", authenticateToken, async (req, res) => {
+    const customerId = parseInt(req.params.id, 10);
+
+    if (isNaN(customerId)) {
+        return res.status(400).json({ error: "Invalid customer ID." });
+    }
+
+    try {
+        // Fetch customer details from Supabase
+        const { data: customer, error } = await supabase
+            .from("users")
+            .select("id, full_name, email, userType, created_at")
+            .eq("id", customerId)
+            .single();
+
+        if (error || !customer) {
+            return res.status(404).json({ error: "Customer not found." });
+        }
+
+        if (customer.userType !== "customer") {
+            return res.status(403).json({ error: "Access denied. Not a customer." });
+        }
+
+        res.status(200).json(customer);
+    } catch (error) {
+        console.error("Error fetching customer details:", error);
+        res.status(500).json({ error: "Internal server error." });
+    }
+});
+
 
 app.get("/api/services", async (req, res) => {
     const { specialistId } = req.query;
