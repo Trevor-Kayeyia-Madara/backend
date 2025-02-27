@@ -9,7 +9,7 @@ const http = require("http"); // Import HTTP module
 
 const app = express(); // Initialize Express first
 const server = http.createServer(app); // Create HTTP server after initializing app
-const io = new Server(server, { cors: { origin: "https://hair-specialist.vercel.app" } });
+const io = new Server(server, { cors: { origin: "*" } }); // Allow All Origins for Testing
 
 app.use(express.json());
 // Configure CORS to allow your frontend domain
@@ -473,6 +473,10 @@ app.get("/api/appointments/specialist/:specialistId", async (req, res) => {
     }
 });
 
+// Server Listening
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
 // ✅ Real-time chat setup with Socket.io
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
@@ -561,8 +565,3 @@ app.post("/api/chat/send", authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Failed to send message." });
     }
 });
-
-
-// Server Listening
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
