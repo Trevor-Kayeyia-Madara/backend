@@ -265,18 +265,23 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
 
 
-// ✅ Fetch Booked Dates
-app.get("/api/booked-dates", async (req, res) => {
-    const { data, error } = await supabase
-        .from("appointments")
-        .select("date");
+// ✅ Fetch Appointment Details by Appointment ID
+app.get("/api/appointments/:appointmentId", async (req, res) => {
+    const { appointmentId } = req.params;  // Get appointmentId from URL params
 
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    try {
+        const response = await fetch(`https://backend-es6y.onrender.com/api/appointments/${appointmentId}`);
+        const appointmentData = await response.json();
+
+        if (!response.ok) {
+            return res.status(404).json({ error: "Appointment not found" });
+        }
+
+        // Return the appointment data
+        res.json(appointmentData);
+    } catch (error) {
+        return res.status(500).json({ error: error.message || "Error fetching appointment details." });
     }
-
-    const bookedDates = data.map((appointment) => appointment.date);
-    res.json(bookedDates);
 });
 
 // ✅ Book an Appointment
