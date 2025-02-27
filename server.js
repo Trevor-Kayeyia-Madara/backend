@@ -473,8 +473,7 @@ app.get("/api/appointments/specialist/:specialistId", async (req, res) => {
     }
 });
 
-
-// ✅ **Real-time chat setup**
+// ✅ Real-time chat setup with Socket.io
 io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
 
@@ -489,19 +488,28 @@ io.on("connection", (socket) => {
     socket.on("sendMessage", async ({ senderId, receiverId, message }) => {
         const roomId = [senderId, receiverId].sort().join("_");
 
-        // Save message to Supabase
-        const { data, error } = await supabase
-            .from("messages")
-            .insert([{ sender_id: senderId, receiver_id: receiverId, content: message }])
-            .select();
+        try {
+            const { data, error } = await supabase
+                .from("messages")
+                .insert([{ sender_id: senderId, receiver_id: receiverId, content: message }])
+                .select();
 
-        if (error) {
-            console.error("Error saving message:", error);
-            return;
+            if (error) {
+                console.error("Error saving message:", error);
+                return;
+            }
+
+            // Emit the message to the room
+            io.to(roomId).emit("receiveMessage", {
+                senderId,
+                receiverId,
+                message,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error("Chat Error:", error);
         }
-
-        // Emit the message to the room
-        io.to(roomId).emit("receiveMessage", { senderId, receiverId, message, timestamp: new Date().toISOString() });
     });
 
     // Handle disconnect
@@ -510,7 +518,7 @@ io.on("connection", (socket) => {
     });
 });
 
-// ✅ **API Route to Fetch Chat History**
+// ✅ Fetch Chat History
 app.get("/api/chat/:customerId/:specialistId", authenticateToken, async (req, res) => {
     const { customerId, specialistId } = req.params;
 
@@ -523,9 +531,34 @@ app.get("/api/chat/:customerId/:specialistId", authenticateToken, async (req, re
             .order("created_at", { ascending: true });
 
         if (error) throw error;
-        res.json(data);
+
+        res.status(200).json(data);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("Error fetching chat history:", error);
+        res.status(500).json({ error: "Failed to retrieve chat messages." });
+    }
+});
+
+// ✅ Send a Message API
+app.post("/api/chat/send", authenticateToken, async (req, res) => {
+    const { senderId, receiverId, content } = req.body;
+
+    if (!senderId || !receiverId || !content.trim()) {
+        return res.status(400).json({ error: "All fields are required." });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from("messages")
+            .insert([{ sender_id: senderId, receiver_id: receiverId, content }])
+            .select();
+
+        if (error) throw error;
+
+        res.status(201).json({ message: "Message sent successfully.", data });
+    } catch (error) {
+        console.error("Error sending message:", error);
+        res.status(500).json({ error: "Failed to send message." });
     }
 });
 
