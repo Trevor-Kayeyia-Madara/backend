@@ -179,21 +179,35 @@ app.get("/api/specialists", async (req, res) => {
     }
 });
 
-// ✅ Fetch Specialist Profile
+// ✅ Fetch Specialist Profile with Full Name
 app.get("/api/specialists/:id", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
+
+    if (!specialistId) {
+        return res.status(400).json({ error: "Invalid specialist ID" });
+    }
+
+    // Fetch specialist details with the associated user's full name
     const { data: specialist, error } = await supabase
         .from("specialist_profile")
-        .select("id, user_id, speciality, service_rates, location, rating")
+        .select("id, user_id, speciality, service_rates, location, rating, users!inner(full_name)")
         .eq("id", specialistId)
         .single();
 
     if (error || !specialist) {
-        return res.status(404).json({ error: "Specialist profile not found." });
+        return res.status(404).json({ error: "Specialist not found." });
     }
 
-    res.json(specialist);
+    res.json({
+        id: specialist.id,
+        full_name: specialist.users.full_name, // Ensure full_name is included
+        speciality: specialist.speciality,
+        service_rates: specialist.service_rates,
+        location: specialist.location,
+        rating: specialist.rating
+    });
 });
+
 
 // ✅ Update Specialist Profile
 app.patch("/api/specialists/:id", async (req, res) => {
