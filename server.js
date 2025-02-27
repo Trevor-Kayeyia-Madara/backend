@@ -9,7 +9,15 @@ const http = require("http"); // Import HTTP module
 
 const app = express(); // Initialize Express first
 const server = http.createServer(app); // Create HTTP server after initializing app
-const io = new Server(server, { cors: { origin: "*" } }); // Allow All Origins for Testing
+
+// ✅ Configure CORS to allow WebSocket connections
+const io = new Server(server, {
+    cors: {
+      origin: "https://hair-specialist.vercel.app", // Your frontend domain
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+  });
 
 app.use(express.json());
 // Configure CORS to allow your frontend domain
