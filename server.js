@@ -414,6 +414,35 @@ app.post("/api/appointments", async (req, res) => {
     }
   });
   
+  // ✅ Get all appointments for a specific specialist
+app.get("/api/appointments/specialist/:id", async (req, res) => {
+    const { specialistId } = req.params;
+
+    if (!specialistId) {
+        return res.status(400).json({ error: "Specialist ID is required." });
+    }
+
+    try {
+        // Fetch appointments for the given specialist
+        const { data, error } = await supabase
+            .from("appointments")
+            .select("id, customer_name, date, time, status, service_id")
+            .eq("specialist_id", specialistId) // Filter by specialist_id
+            .order("date", { ascending: true });
+
+        if (error) throw error;
+
+        if (data.length === 0) {
+            return res.status(404).json({ message: "No appointments found for this specialist." });
+        }
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("Error fetching specialist appointments:", error);
+        res.status(500).json({ error: "Failed to fetch appointments." });
+    }
+});
+
   app.get("/api/appointments/:id", async (req, res) => {
     const { id } = req.params;
 
