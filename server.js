@@ -129,28 +129,42 @@ app.get("/api/customers/:id", authenticateToken, async (req, res) => {
     res.status(200).json(customer);
 });
 
-// ✅ Fetch All Specialists with Full Names
 app.get("/api/specialists", async (req, res) => {
-    const { data: specialists, error } = await supabase
-        .from("specialist_profile")
-        .select(`
-            id, 
-            user_id, 
-            speciality, 
-            service_rates, 
-            location, 
-            rating, 
-            created_at, 
-            users (full_name)  -- ✅ Join users table to get full_name
-        `);
+    try {
+        const { search } = req.query; // Get search query
 
-    if (error) {
-        return res.status(500).json({ error: "Failed to fetch specialists." });
+        let query = supabase
+            .from("specialist_profile")
+            .select("id, speciality, service_rates, rating, location, created_at, users!inner (full_name)")
+            .order("id", { ascending: true });
+
+        // Apply search filter if present
+        if (search) {
+            query = query.or(`speciality.ilike.%${search}%,location.ilike.%${search}%`);
+        }
+
+        const { data: specialists, error } = await query;
+
+        if (error) {
+            return res.status(500).json({ message: "Error fetching specialists.", error });
+        }
+
+        // Format response
+        const formattedSpecialists = specialists.map(spec => ({
+            id: spec.id,
+            speciality: spec.speciality,
+            service_rates: spec.service_rates,
+            rating: spec.rating,
+            location: spec.location,
+            created_at: spec.created_at,
+            full_name: spec.users?.full_name
+        }));
+
+        res.status(200).json(formattedSpecialists);
+    } catch (error) {
+        res.status(500).json({ message: "Server error while fetching specialists." });
     }
-
-    res.status(200).json(specialists);
 });
-
 
 // ✅ Fetch Specialist Profile
 app.get("/api/specialists/:id", async (req, res) => {
