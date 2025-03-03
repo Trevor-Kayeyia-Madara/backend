@@ -265,13 +265,13 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
 
 app.get("/api/appointments/:appointmentId", async (req, res) => {
-    const { appointment_id } = req.params;
+    const { appointmentId } = req.params;
 
     try {
         const { data: appointment, error } = await supabase
             .from("appointments")
             .select("id, customer_id, customer_name, specialist_name, service (name, price), date, time")
-            .eq("id", appointment_id)
+            .eq("id", appointmentId)
             .single();  // ✅ Fetch only one record
 
         if (error || !appointment) {
@@ -288,8 +288,6 @@ app.get("/api/appointments/:appointmentId", async (req, res) => {
         return res.status(500).json({ error: error.message || "Error fetching appointment details." });
     }
 });
-
-
 // ✅ Book an Appointment
 app.post("/api/appointments", authenticateToken, async (req, res) => {
     const { customer_name, specialist_id, service_id, date, time } = req.body;
@@ -359,6 +357,7 @@ app.post("/api/appointments", authenticateToken, async (req, res) => {
 
     res.status(201).json({ message: "Appointment booked successfully!", appointment });
 });
+
 app.put("/api/appointments/:id/update-status", authenticateToken, async (req, res) => {
     const appointmentId = parseInt(req.params.id, 10);
     const { status } = req.body;
