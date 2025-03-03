@@ -40,23 +40,10 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// ✅ Validate Session (Now Includes Full Name)
-app.get("/api/validate-session", authenticateToken, async (req, res) => {
-    const userId = req.user.id;
-
-    const { data: user, error } = await supabase
-        .from("users")
-        .select("id, full_name, email, userType")
-        .eq("id", userId)
-        .single();
-
-    if (error || !user) {
-        return res.status(404).json({ message: "User not found." });
-    }
-
-    res.status(200).json({ loggedIn: true, user });
+// ✅ Validate Session
+app.get("/api/validate-session", authenticateToken, (req, res) => {
+    res.status(200).json({ loggedIn: true, userId: req.user.id });
 });
-
 
 // ✅ User Login
 app.post("/api/login", async (req, res) => {
@@ -76,7 +63,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "2h" });
-    res.status(200).json({ message: "Login successful", userType: user.userType, token, id: user.id });
+    res.status(200).json({ message: "Login successful", userType: user.userType, token });
 });
 
 // ✅ User Signup
@@ -142,72 +129,21 @@ app.get("/api/customers/:id", authenticateToken, async (req, res) => {
     res.status(200).json(customer);
 });
 
-app.get("/api/specialists", async (req, res) => {
-    try {
-        const { search } = req.query; // Get search query
-
-        let query = supabase
-            .from("specialist_profile")
-            .select("id, speciality, service_rates, rating, location, created_at, users!inner (full_name)")
-            .order("id", { ascending: true });
-
-        // Apply search filter if present
-        if (search) {
-            query = query.or(`speciality.ilike.%${search}%,location.ilike.%${search}%`);
-        }
-
-        const { data: specialists, error } = await query;
-
-        if (error) {
-            return res.status(500).json({ message: "Error fetching specialists.", error });
-        }
-
-        // Format response
-        const formattedSpecialists = specialists.map(spec => ({
-            id: spec.id,
-            speciality: spec.speciality,
-            service_rates: spec.service_rates,
-            rating: spec.rating,
-            location: spec.location,
-            created_at: spec.created_at,
-            full_name: spec.users?.full_name
-        }));
-
-        res.status(200).json(formattedSpecialists);
-    } catch (error) {
-        res.status(500).json({ message: "Server error while fetching specialists." });
-    }
-});
-
-// ✅ Fetch Specialist Profile with Full Name
+// ✅ Fetch Specialist Profile
 app.get("/api/specialists/:id", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
-
-    if (!specialistId) {
-        return res.status(400).json({ error: "Invalid specialist ID" });
-    }
-
-    // Fetch specialist details with the associated user's full name
     const { data: specialist, error } = await supabase
         .from("specialist_profile")
-        .select("id, user_id, speciality, service_rates, location, rating, users!inner(full_name)")
+        .select("id, user_id, speciality, service_rates, location, rating")
         .eq("id", specialistId)
         .single();
 
     if (error || !specialist) {
-        return res.status(404).json({ error: "Specialist not found." });
+        return res.status(404).json({ error: "Specialist profile not found." });
     }
 
-    res.json({
-        id: specialist.id,
-        full_name: specialist.users.full_name, // Ensure full_name is included
-        speciality: specialist.speciality,
-        service_rates: specialist.service_rates,
-        location: specialist.location,
-        rating: specialist.rating
-    });
+    res.json(specialist);
 });
-
 
 // ✅ Update Specialist Profile
 app.patch("/api/specialists/:id", async (req, res) => {
@@ -231,39 +167,24 @@ app.patch("/api/specialists/:id", async (req, res) => {
     res.json({ message: "Profile updated successfully.", data });
 });
 
-// ✅ Fetch Services by Speciality
-app.get("/api/specialists/:id/services", async (req, res) => {
-    const specialistId = parseInt(req.params.id, 10);
-
+// ✅ Fetch Services
+app.get("/api/services", async (req, res) => {
+    const { specialistId } = req.query;
     if (!specialistId) {
-        return res.status(400).json({ error: "Invalid specialist ID" });
+        return res.status(400).json({ error: "Specialist ID is required" });
     }
 
-    // Fetch the specialist's speciality
-    const { data: specialist, error: specialistError } = await supabase
-        .from("specialist_profile")
-        .select("speciality")
-        .eq("id", specialistId)
-        .single();
-
-    if (specialistError || !specialist) {
-        return res.status(404).json({ error: "Specialist not found." });
-    }
-
-    // Fetch services based on the speciality_id
-    const { data: services, error: servicesError } = await supabase
+    const { data, error } = await supabase
         .from("services")
         .select("*")
-        .eq("speciality_id", specialistId); // Match services with the speciality_id
+        .eq("specialist_id", specialistId);
 
-    if (servicesError) {
-        return res.status(500).json({ error: servicesError.message });
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
 
-    res.status(200).json(services);
+    res.json(data);
 });
-
-
 
 // ✅ Fetch Booked Dates
 app.get("/api/booked-dates", async (req, res) => {
@@ -279,74 +200,23 @@ app.get("/api/booked-dates", async (req, res) => {
     res.json(bookedDates);
 });
 
-// ✅ Book an Appointment
-app.post("/api/appointments", authenticateToken, async (req, res) => {
+// ✅ Create Appointment
+app.post("/api/appointments", async (req, res) => {
     const { customer_name, specialist_id, service_id, date, time } = req.body;
-    
-    if (!customer_name || !specialist_id || !service_id || !date || !time) {
-        return res.status(400).json({ message: "All fields are required." });
+    if (!customer_name || !date || !time) {
+        return res.status(400).json({ error: "Customer name, date, and time are required" });
     }
 
-    // Fetch specialist's working hours
-    const { data: specialist, error: specialistError } = await supabase
-        .from("specialist_profile")
-        .select("opening_time, closing_time")
-        .eq("id", specialist_id)
-        .single();
-
-    if (specialistError || !specialist) {
-        return res.status(404).json({ message: "Specialist not found." });
-    }
-
-    const openingTime = new Date(`1970-01-01T${specialist.opening_time}Z`);
-    const closingTime = new Date(`1970-01-01T${specialist.closing_time}Z`);
-    const requestedTime = new Date(`1970-01-01T${time}Z`);
-
-    // Check if the requested time is within the specialist's working hours
-    if (requestedTime < openingTime || requestedTime >= closingTime) {
-        return res.status(400).json({ message: `Specialist is only available between ${specialist.opening_time} and ${specialist.closing_time}.` });
-    }
-
-    // Calculate the end time of the appointment (2 hours duration)
-    const endTime = new Date(requestedTime.getTime() + 2 * 60 * 60 * 1000);  // Adding 2 hours
-
-    // Check if the specialist is already booked during the requested time
-    const { data: existingAppointments, error: appointmentsError } = await supabase
+    const { data, error } = await supabase
         .from("appointments")
-        .select("id, time, date")
-        .eq("specialist_id", specialist_id)
-        .eq("date", date)
-        .gte("time", requestedTime.toISOString().split("T")[1])
-        .lt("time", endTime.toISOString().split("T")[1]); // Check if there's an overlap with the 2-hour duration
+        .insert([{ customer_name, specialist_id, service_id, date, time, status: "Pending" }])
+        .select();
 
-    if (appointmentsError) {
-        return res.status(500).json({ message: "Error checking specialist availability." });
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
 
-    if (existingAppointments.length > 0) {
-        return res.status(400).json({ message: "Specialist is already booked for the requested time." });
-    }
-
-    // Create the appointment
-    const { data: appointment, error: appointmentError } = await supabase
-        .from("appointments")
-        .insert([
-            {
-                customer_id: req.user.id, // Assuming you're sending the logged-in user's ID
-                specialist_id,
-                service_id,
-                date,
-                time,
-                status: "Pending",
-            }
-        ])
-        .single();
-
-    if (appointmentError) {
-        return res.status(500).json({ message: "Error creating appointment." });
-    }
-
-    res.status(201).json({ message: "Appointment booked successfully!", appointment });
+    res.status(201).json({ message: "Appointment booked successfully", appointment: data[0] });
 });
 
 // ✅ Start Server
