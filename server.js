@@ -289,7 +289,7 @@ app.get("/api/appointments/:appointmentId", async (req, res) => {
     }
 });
 app.post("/api/appointments", authenticateToken, async (req, res) => {
-    const { customer_name, specialist_id, service_id, date, time } = req.body;
+    const { customer_id, customer_name, specialist_id, service_id, date, time } = req.body;
     
     if (!customer_name || !specialist_id || !service_id || !date || !time) {
         return res.status(400).json({ message: "All fields are required." });
@@ -318,7 +318,7 @@ app.post("/api/appointments", authenticateToken, async (req, res) => {
     // Proceed with booking since no conflicts
     const { data, error: insertError } = await supabase
         .from("appointments")
-        .insert([{ customer_name, specialist_id, service_id, date, time, status: "Pending" }])
+        insert([{ customer_id, customer_name, specialist_id, service_id, date, time, status: "Pending" }])
         .select();
 
     if (insertError) {
