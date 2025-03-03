@@ -265,13 +265,13 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
 
 app.get("/api/appointments/:appointmentId", async (req, res) => {
-    const { appointmentId } = req.params;
+    const { appointment_id } = req.params;
 
     try {
         const { data: appointment, error } = await supabase
             .from("appointments")
             .select("id, customer_id, customer_name, specialist_name, service (name, price), date, time")
-            .eq("id", appointmentId)
+            .eq("id", appointment_id)
             .single();  // ✅ Fetch only one record
 
         if (error || !appointment) {
