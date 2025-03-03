@@ -263,31 +263,32 @@ app.get("/api/specialists/:id/services", async (req, res) => {
     res.status(200).json(services);
 });
 
-
 app.get("/api/appointments/:appointmentId", async (req, res) => {
-    const { appointmentId } = req.params;
+    const appointmentId = parseInt(req.params.appointmentId, 10);
+
+    // Check if ID is a valid number
+    if (isNaN(appointmentId) || appointmentId <= 0) {
+        return res.status(400).json({ error: "Invalid appointment ID." });
+    }
 
     try {
         const { data: appointment, error } = await supabase
             .from("appointments")
             .select("id, customer_id, customer_name, specialist_name, service (name, price), date, time")
             .eq("id", appointmentId)
-            .single();  // ✅ Fetch only one record
+            .single();
 
         if (error || !appointment) {
             return res.status(404).json({ error: "Appointment not found." });
         }
 
-        if (!appointment.customer_id) {
-            return res.status(500).json({ error: "customer_id is missing from response." });
-        }
-
         res.json(appointment);
     } catch (error) {
         console.error("Error fetching appointment:", error);
-        return res.status(500).json({ error: error.message || "Error fetching appointment details." });
+        return res.status(500).json({ error: "Server error while fetching appointment details." });
     }
 });
+
 
 // ✅ Book an Appointment (Fixed)
 app.post("/api/appointments", authenticateToken, async (req, res) => {
