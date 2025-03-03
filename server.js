@@ -288,46 +288,76 @@ app.get("/api/appointments/:appointmentId", async (req, res) => {
         return res.status(500).json({ error: error.message || "Error fetching appointment details." });
     }
 });
+
+// ✅ Book an Appointment
 app.post("/api/appointments", authenticateToken, async (req, res) => {
-    const { customer_id, customer_name, specialist_id, service_id, date, time } = req.body;
+    const { customer_name, specialist_id, service_id, date, time } = req.body;
     
     if (!customer_name || !specialist_id || !service_id || !date || !time) {
         return res.status(400).json({ message: "All fields are required." });
     }
 
-    // Convert time to a Date object
-    const requestedTime = new Date(`${date}T${time}:00`);
+    // Fetch specialist's working hours
+    const { data: specialist, error: specialistError } = await supabase
+        .from("specialist_profile")
+        .select("opening_time, closing_time")
+        .eq("id", specialist_id)
+        .single();
 
-    // Check for existing appointments within the 2-hour window
-    const { data: existingAppointments, error } = await supabase
-    .from("appointments")
-    .select("time")
-    .eq("date", date)
-    .eq("specialist_id", specialist_id)
-    .gte("time", new Date(requestedTime - 2 * 60 * 60 * 1000).toISOString())
-    .lte("time", new Date(requestedTime + 2 * 60 * 60 * 1000).toISOString());
-  
-    if (error) {
-        return res.status(500).json({ message: "Database error checking existing appointments." });
+    if (specialistError || !specialist) {
+        return res.status(404).json({ message: "Specialist not found." });
+    }
+
+    const openingTime = new Date(`1970-01-01T${specialist.opening_time}Z`);
+    const closingTime = new Date(`1970-01-01T${specialist.closing_time}Z`);
+    const requestedTime = new Date(`1970-01-01T${time}Z`);
+
+    // Check if the requested time is within the specialist's working hours
+    if (requestedTime < openingTime || requestedTime >= closingTime) {
+        return res.status(400).json({ message: `Specialist is only available between ${specialist.opening_time} and ${specialist.closing_time}.` });
+    }
+
+    // Calculate the end time of the appointment (2 hours duration)
+    const endTime = new Date(requestedTime.getTime() + 2 * 60 * 60 * 1000);  // Adding 2 hours
+
+    // Check if the specialist is already booked during the requested time
+    const { data: existingAppointments, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select("id, time, date")
+        .eq("specialist_id", specialist_id)
+        .eq("date", date)
+        .gte("time", requestedTime.toISOString().split("T")[1])
+        .lt("time", endTime.toISOString().split("T")[1]); // Check if there's an overlap with the 2-hour duration
+
+    if (appointmentsError) {
+        return res.status(500).json({ message: "Error checking specialist availability." });
     }
 
     if (existingAppointments.length > 0) {
-        return res.status(400).json({ message: "This time slot is unavailable. Please select a different time." });
+        return res.status(400).json({ message: "Specialist is already booked for the requested time." });
     }
 
-    // Proceed with booking since no conflicts
-    const { data, error: insertError } = await supabase
+    // Create the appointment
+    const { data: appointment, error: appointmentError } = await supabase
         .from("appointments")
-        insert([{ customer_id, customer_name, specialist_id, service_id, date, time, status: "Pending" }])
-        .select();
+        .insert([
+            {
+                customer_id: req.user.id, // Assuming you're sending the logged-in user's ID
+                specialist_id,
+                service_id,
+                date,
+                time,
+                status: "Pending",
+            }
+        ])
+        .single();
 
-    if (insertError) {
-        return res.status(500).json({ message: "Error booking appointment." });
+    if (appointmentError) {
+        return res.status(500).json({ message: "Error creating appointment." });
     }
 
-    return res.status(201).json({ message: "Appointment booked successfully!", appointment: data });
+    res.status(201).json({ message: "Appointment booked successfully!", appointment });
 });
-
 app.put("/api/appointments/:id/update-status", authenticateToken, async (req, res) => {
     const appointmentId = parseInt(req.params.id, 10);
     const { status } = req.body;
