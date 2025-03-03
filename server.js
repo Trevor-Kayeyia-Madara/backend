@@ -300,12 +300,13 @@ app.post("/api/appointments", authenticateToken, async (req, res) => {
 
     // Check for existing appointments within the 2-hour window
     const { data: existingAppointments, error } = await supabase
-        .from("appointments")
-        .select("time")
-        .eq("date", date)
-        .eq("specialist_id", specialist_id)
-        .or(`time.gte.${new Date(requestedTime - 2 * 60 * 60 * 1000).toISOString()},time.lte.${new Date(requestedTime + 2 * 60 * 60 * 1000).toISOString()}`);
-
+    .from("appointments")
+    .select("time")
+    .eq("date", date)
+    .eq("specialist_id", specialist_id)
+    .gte("time", new Date(requestedTime - 2 * 60 * 60 * 1000).toISOString())
+    .lte("time", new Date(requestedTime + 2 * 60 * 60 * 1000).toISOString());
+  
     if (error) {
         return res.status(500).json({ message: "Database error checking existing appointments." });
     }
