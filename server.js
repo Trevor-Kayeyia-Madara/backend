@@ -289,6 +289,7 @@ app.get("/api/appointments/:appointmentId", async (req, res) => {
     }
 });
 
+
 // ✅ Book an Appointment
 app.post("/api/appointments", authenticateToken, async (req, res) => {
     const { customer_name, specialist_id, service_id, date, time } = req.body;
