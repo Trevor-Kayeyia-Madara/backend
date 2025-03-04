@@ -210,8 +210,8 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
     const { data, error } = await supabase
         .from("services")
-        .select("id, name, prices")
-        .eq("specialist_id", id);
+        .select("id, name, description, prices")
+        .eq("speciality_id", id);
 
     if (error) {
         return res.status(500).json({ error: "Error fetching services." });
@@ -219,7 +219,6 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
     res.json(data);
 });
-
 // API to fetch already booked slots
 app.get("/api/booked-slots/:id", async (req, res) => {
     const { id } = req.params;
