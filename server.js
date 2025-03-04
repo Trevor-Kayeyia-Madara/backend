@@ -223,30 +223,78 @@ app.get("/api/services", async (req, res) => {
     res.json(data);
 });
 
-// ✅ Fetch Booked Dates
-app.get("/api/booked-dates", async (req, res) => {
+// API to fetch already booked slots
+app.get("/api/booked-slots/:id", async (req, res) => {
+    const { id } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+    }
+
     const { data, error } = await supabase
         .from("appointments")
-        .select("date");
+        .select("time")
+        .eq("specialist_id", id)
+        .eq("date", date);
 
     if (error) {
         return res.status(500).json({ error: error.message });
     }
 
-    const bookedDates = data.map((appointment) => appointment.date);
-    res.json(bookedDates);
+    const bookedTimes = data.map((appointment) => appointment.time);
+    res.json(bookedTimes);
 });
 
-// ✅ Create Appointment
+// API to create an appointment with validation
 app.post("/api/appointments", async (req, res) => {
-    const { customer_name, specialist_id, service_id, date, time } = req.body;
-    if (!customer_name || !date || !time) {
-        return res.status(400).json({ error: "Customer name, date, and time are required" });
+    const { customer_id, specialist_id, service_id, date, time, status } = req.body;
+
+    if (!customer_id || !date || !time || !specialist_id || !service_id || !status) {
+        return res.status(400).json({ error: "All fields are required" });
     }
 
+    // Fetch specialist's working hours
+    const { data: specialist, error: specialistError } = await supabase
+        .from("specialist_profile")
+        .select("opening_time, closing_time")
+        .eq("id", specialist_id)
+        .single();
+
+    if (specialistError || !specialist) {
+        return res.status(404).json({ error: "Specialist profile not found" });
+    }
+
+    const selectedTime = parseInt(time.split(":")[0]);
+    const openingTime = parseInt(specialist.opening_time.split(":")[0]);
+    const closingTime = parseInt(specialist.closing_time.split(":")[0]);
+
+    if (selectedTime < openingTime || selectedTime >= closingTime) {
+        return res.status(400).json({ error: "Selected time is outside working hours." });
+    }
+
+    // Check for overlapping appointments (2-hour rule)
+    const { data: existingAppointments, error: appointmentError } = await supabase
+        .from("appointments")
+        .select("time")
+        .eq("specialist_id", specialist_id)
+        .eq("date", date);
+
+    if (appointmentError) {
+        return res.status(500).json({ error: "Error checking existing appointments" });
+    }
+
+    for (const appointment of existingAppointments) {
+        const bookedHour = parseInt(appointment.time.split(":")[0]);
+        if (selectedTime >= bookedHour && selectedTime < bookedHour + 2) {
+            return res.status(400).json({ error: "Time slot already booked. Choose another time." });
+        }
+    }
+
+    // Insert new appointment
     const { data, error } = await supabase
         .from("appointments")
-        .insert([{ customer_name, specialist_id, service_id, date, time, status: "Pending" }])
+        .insert([{ customer_id, specialist_id, service_id, date, time, status, created_at: new Date() }])
         .select();
 
     if (error) {
@@ -255,6 +303,7 @@ app.post("/api/appointments", async (req, res) => {
 
     res.status(201).json({ message: "Appointment booked successfully", appointment: data[0] });
 });
+
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
