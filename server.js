@@ -204,20 +204,17 @@ app.patch("/api/specialists/:id", async (req, res) => {
     res.json({ message: "Profile updated successfully.", data });
 });
 
-// ✅ Fetch Services
-app.get("/api/services", async (req, res) => {
-    const { specialistId } = req.query;
-    if (!specialistId) {
-        return res.status(400).json({ error: "Specialist ID is required" });
-    }
+// API to fetch services offered by a specific specialist
+app.get("/api/specialists/:id/services", async (req, res) => {
+    const { id } = req.params;
 
     const { data, error } = await supabase
         .from("services")
-        .select("*")
-        .eq("specialist_id", specialistId);
+        .select("id, name, prices")
+        .eq("specialist_id", id);
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: "Error fetching services." });
     }
 
     res.json(data);
