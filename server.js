@@ -331,6 +331,89 @@ app.post("/api/appointments", async (req, res) => {
     res.status(201).json({ message: "Appointment booked successfully", appointment: data[0] });
 });
 
+// api for creating reviews
+app.post("/api/reviews", authenticateToken, async (req, res) => {
+    const { customer_id, specialist_id, rating, review_text } = req.body;
+
+    if (!customer_id || !specialist_id || !rating) {
+        return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    try {
+        // Insert review into the reviews table
+        const { data: review, error: reviewError } = await supabase
+            .from("reviews")
+            .insert([{ customer_id, specialist_id, rating, review_text }])
+            .select()
+            .single();
+
+        if (reviewError) {
+            return res.status(500).json({ error: "Failed to save review." });
+        }
+
+        // Calculate new average rating
+        const { data: reviews, error: fetchError } = await supabase
+            .from("reviews")
+            .select("rating")
+            .eq("specialist_id", specialist_id);
+
+        if (fetchError) {
+            return res.status(500).json({ error: "Failed to calculate rating." });
+        }
+
+        const totalRatings = reviews.length;
+        const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings;
+
+        // Update specialist rating
+        const { error: updateError } = await supabase
+            .from("specialist_profile")
+            .update({ rating: avgRating })
+            .eq("id", specialist_id);
+
+        if (updateError) {
+            return res.status(500).json({ error: "Failed to update specialist rating." });
+        }
+
+        res.status(201).json({ message: "Review submitted successfully!", review });
+    } catch (error) {
+        res.status(500).json({ error: "Server error submitting review." });
+    }
+});
+
+//GET SPECIALIST REVIEWS
+
+app.get("/api/reviews/:specialist_id", async (req, res) => {
+    const { specialist_id } = req.params;
+
+    const { data: reviews, error } = await supabase
+        .from("reviews")
+        .select("id, customer_id, rating, review_text, created_at")
+        .eq("specialist_id", specialist_id)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        return res.status(500).json({ error: "Error fetching reviews." });
+    }
+
+    res.status(200).json(reviews);
+});
+// ✅ Fetch All Reviews for Landing Page
+app.get("/api/reviews", async (req, res) => {
+    try {
+        const { data: reviews, error } = await supabase
+            .from("reviews")
+            .select("id, customer_id, specialist_id, rating, review_text, created_at")
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            return res.status(500).json({ error: "Error fetching reviews." });
+        }
+
+        res.status(200).json(reviews);
+    } catch (error) {
+        res.status(500).json({ error: "Server error while fetching reviews." });
+    }
+});
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
