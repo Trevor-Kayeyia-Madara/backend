@@ -457,7 +457,7 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
                 date, 
                 time, 
                 status, 
-                specialist_profile!specialist_id (full_name, speciality) 
+                 users!specialist_id (full_name)
             `)
             .eq("customer_id", customerId)
             .order("date", { ascending: false });
