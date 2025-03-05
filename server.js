@@ -255,28 +255,23 @@ app.get("/api/specialists/:id/services", async (req, res) => {
 
     res.json(data);
 });
-// API to fetch already booked slots
-app.get("/api/booked-slots/:id", async (req, res) => {
-    const { id } = req.params;
-    const { date } = req.query;
+app.get("/api/appointments/:id", async (req, res) => {
+    const appointmentId = parseInt(req.params.id, 10);
 
-    if (!date) {
-        return res.status(400).json({ error: "Date is required" });
-    }
-
-    const { data, error } = await supabase
+    // Fetch appointment details from the database
+    const { data: appointment, error } = await supabase
         .from("appointments")
-        .select("time")
-        .eq("specialist_id", id)
-        .eq("date", date);
+        .select("id, customer_id, specialist_id, service_id, date, time, status")
+        .eq("id", appointmentId)
+        .single();
 
-    if (error) {
-        return res.status(500).json({ error: error.message });
+    if (error || !appointment) {
+        return res.status(404).json({ error: "Appointment not found." });
     }
 
-    const bookedTimes = data.map((appointment) => appointment.time);
-    res.json(bookedTimes);
+    res.status(200).json(appointment);
 });
+
 
 // API to create an appointment with validation
 app.post("/api/appointments", async (req, res) => {
