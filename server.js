@@ -333,7 +333,7 @@ app.post("/api/appointments", async (req, res) => {
 
 // api for creating reviews
 app.post("/api/reviews", authenticateToken, async (req, res) => {
-    const { customer_id, specialist_id, rating, review_text } = req.body;
+    const { customer_id, specialist_id, rating, review } = req.body;
 
     if (!customer_id || !specialist_id || !rating) {
         return res.status(400).json({ error: "Missing required fields." });
@@ -343,7 +343,7 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
         // Insert review into the reviews table
         const { data: review, error: reviewError } = await supabase
             .from("reviews")
-            .insert([{ customer_id, specialist_id, rating, review_text }])
+            .insert([{ customer_id, specialist_id, rating, review }])
             .select()
             .single();
 
@@ -387,7 +387,7 @@ app.get("/api/reviews/:specialist_id", async (req, res) => {
 
     const { data: reviews, error } = await supabase
         .from("reviews")
-        .select("id, customer_id, rating, review_text, created_at")
+        .select("id, customer_id, rating, review, created_at")
         .eq("specialist_id", specialist_id)
         .order("created_at", { ascending: false });
 
@@ -438,7 +438,7 @@ app.get("/api/reviews/:customer_id/:specialist_id", async (req, res) => {
 
 // ✅ Update Existing Review
 app.put("/api/reviews", authenticateToken, async (req, res) => {
-    const { customer_id, specialist_id, rating, review_text } = req.body;
+    const { customer_id, specialist_id, rating, review } = req.body;
 
     try {
         const { data, error } = await supabase
