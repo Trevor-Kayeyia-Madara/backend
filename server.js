@@ -51,6 +51,12 @@ app.get("/api/validate-session", authenticateToken, async (req, res) => {
     if (error || !user) {
         return res.status(404).json({ message: "User not found." });
     }
+     // ✅ Fetch customer_id
+     const { data: customer } = await supabase
+     .from("customers")
+     .select("id")
+     .eq("user_id", user.id)
+     .single();
 
     res.status(200).json({ loggedIn: true, user });
 });
