@@ -113,12 +113,12 @@ app.get("/api/users/:id", authenticateToken, async (req, res) => {
     res.status(200).json(user);
 });
 
-// ✅ Fetch Customer by ID
 app.get("/api/customers/:id", authenticateToken, async (req, res) => {
     const customerId = parseInt(req.params.id, 10);
+
     const { data: customer, error } = await supabase
         .from("customers")
-        .select("user_id, phone_number, address")
+        .select("user_id, phone_number, address, users(full_name)")
         .eq("user_id", customerId)
         .single();
 
@@ -126,8 +126,14 @@ app.get("/api/customers/:id", authenticateToken, async (req, res) => {
         return res.status(404).json({ error: "Customer not found." });
     }
 
-    res.status(200).json(customer);
+    res.status(200).json({
+        user_id: customer.user_id,
+        phone_number: customer.phone_number,
+        address: customer.address,
+        full_name: customer.users.full_name
+    });
 });
+
 
 app.get("/api/specialists", async (req, res) => {
     try {
@@ -166,12 +172,12 @@ app.get("/api/specialists", async (req, res) => {
     }
 });
 
-// ✅ Fetch Specialist Profile
 app.get("/api/specialists/:id", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
+
     const { data: specialist, error } = await supabase
         .from("specialist_profile")
-        .select("id, user_id, speciality, service_rates, location, rating")
+        .select("id, user_id, speciality, service_rates, location, rating, users(full_name)")
         .eq("id", specialistId)
         .single();
 
@@ -179,8 +185,16 @@ app.get("/api/specialists/:id", async (req, res) => {
         return res.status(404).json({ error: "Specialist profile not found." });
     }
 
-    res.json(specialist);
+    res.json({
+        id: specialist.id,
+        speciality: specialist.speciality,
+        service_rates: specialist.service_rates,
+        location: specialist.location,
+        rating: specialist.rating,
+        full_name: specialist.users.full_name
+    });
 });
+
 
 // ✅ Update Specialist Profile
 app.patch("/api/specialists/:id", async (req, res) => {
