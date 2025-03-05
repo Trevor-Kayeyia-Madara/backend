@@ -414,6 +414,49 @@ app.get("/api/reviews", async (req, res) => {
         res.status(500).json({ error: "Server error while fetching reviews." });
     }
 });
+// ✅ Fetch Existing Review for Customer & Specialist
+app.get("/api/reviews/:customer_id/:specialist_id", async (req, res) => {
+    const { customer_id, specialist_id } = req.params;
+
+    try {
+        const { data: review, error } = await supabase
+            .from("reviews")
+            .select("id, rating, review_text")
+            .eq("customer_id", customer_id)
+            .eq("specialist_id", specialist_id)
+            .single();
+
+        if (error && error.code !== "PGRST116") { // Ignore no-data error
+            return res.status(500).json({ error: "Error fetching review." });
+        }
+
+        res.status(200).json(review || null);
+    } catch (error) {
+        res.status(500).json({ error: "Server error while fetching review." });
+    }
+});
+
+// ✅ Update Existing Review
+app.put("/api/reviews", authenticateToken, async (req, res) => {
+    const { customer_id, specialist_id, rating, review_text } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from("reviews")
+            .update({ rating, review_text, created_at: new Date() })
+            .eq("customer_id", customer_id)
+            .eq("specialist_id", specialist_id)
+            .select();
+
+        if (error) {
+            return res.status(500).json({ error: "Failed to update review." });
+        }
+
+        res.status(200).json({ message: "Review updated successfully!", data });
+    } catch (error) {
+        res.status(500).json({ error: "Server error updating review." });
+    }
+});
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
