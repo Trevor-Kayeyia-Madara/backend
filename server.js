@@ -41,9 +41,20 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ✅ Validate Session
-app.get("/api/validate-session", authenticateToken, (req, res) => {
-    res.status(200).json({ loggedIn: true, userId: req.user.id });
+app.get("/api/validate-session", authenticateToken, async (req, res) => {
+    const { data: user, error } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("id", req.user.id)
+        .single();
+
+    if (error || !user) {
+        return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({ loggedIn: true, user });
 });
+
 
 // ✅ User Login
 app.post("/api/login", async (req, res) => {
