@@ -447,7 +447,7 @@ app.put("/api/reviews", authenticateToken, async (req, res) => {
 // ✅ Fetch Appointments for Logged-in Customer
 app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) => {
     const customerId = parseInt(req.params.id, 10);
-
+    console.log(`Fetching appointments for customer ID: ${customerId}`); // ✅ Log the request
     try {
         // ✅ Fix the join with `specialist_profile`
         const { data: appointments, error } = await supabase
