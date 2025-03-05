@@ -444,15 +444,21 @@ app.put("/api/reviews", authenticateToken, async (req, res) => {
     }
 });
 
-//Fetch Customers, Appointments
 // ✅ Fetch Appointments for Logged-in Customer
 app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) => {
     const customerId = parseInt(req.params.id, 10);
 
     try {
+        // ✅ Fix the join with `specialist_profile`
         const { data: appointments, error } = await supabase
             .from("appointments")
-            .select("id, specialist_id, service_id, date, time, status, specialist_profile(full_name, speciality)")
+            .select(`
+                id, 
+                date, 
+                time, 
+                status, 
+                specialist_profile!specialist_id (full_name, speciality) 
+            `)
             .eq("customer_id", customerId)
             .order("date", { ascending: false });
 
