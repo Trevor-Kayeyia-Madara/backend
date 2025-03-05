@@ -444,6 +444,28 @@ app.put("/api/reviews", authenticateToken, async (req, res) => {
     }
 });
 
+//Fetch Customers, Appointments
+// ✅ Fetch Appointments for Logged-in Customer
+app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) => {
+    const customerId = parseInt(req.params.id, 10);
+
+    try {
+        const { data: appointments, error } = await supabase
+            .from("appointments")
+            .select("id, specialist_id, service_id, date, time, status, specialist_profile(full_name, speciality)")
+            .eq("customer_id", customerId)
+            .order("date", { ascending: false });
+
+        if (error) {
+            return res.status(500).json({ error: "Failed to fetch appointments.", details: error.message });
+        }
+
+        res.status(200).json(appointments);
+    } catch (error) {
+        res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
+    }
+});
+
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
