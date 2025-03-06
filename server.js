@@ -400,23 +400,34 @@ app.get("/api/reviews", async (req, res) => {
     }
 });
 
-// ✅ Fetch Existing Review for Customer & Specialist
 app.get("/api/reviews/:customer_id/:specialist_id", async (req, res) => {
     const { customer_id, specialist_id } = req.params;
 
     try {
         const { data: review, error } = await supabase
             .from("reviews")
-            .select("id, rating, review")
+            .select(
+                "id, rating, review, created_at, specialist_profile!inner(user_id, users!inner(full_name))"
+            )
             .eq("customer_id", customer_id)
             .eq("specialist_id", specialist_id)
             .single();
 
-        if (error && error.code !== "PGRST116") { // Ignore no-data error
+        if (error && error.code !== "PGRST116") {
             return res.status(500).json({ error: "Error fetching review." });
         }
 
-        res.status(200).json(review || null);
+        if (!review) {
+            return res.status(404).json({ message: "No review found." });
+        }
+
+        res.status(200).json({
+            id: review.id,
+            rating: review.rating,
+            review: review.review,
+            created_at: review.created_at,
+            specialist_name: review.specialist_profile.users.full_name,
+        });
     } catch (error) {
         res.status(500).json({ error: "Server error while fetching review." });
     }
