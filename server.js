@@ -449,24 +449,73 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
     console.log(`Fetching appointments for customer ID: ${customerId}`); // ✅ Log request
 
     try {
-        const { data: appointments, error } = await supabase
+        // Fetch appointments for the given customer
+        const { data: appointments, error: appointmentError } = await supabase
             .from("appointments")
-            .select(`
-                id, 
-                date, 
-                time, 
-                status, 
-                specialist_profile!inner(speciality, users!inner(full_name))
-            `)
+            .select("id, date, time, status, specialist_id")
             .eq("customer_id", customerId)
             .order("date", { ascending: false });
 
-        if (error) {
-            console.error("Supabase Query Error:", error);
-            return res.status(500).json({ error: "Failed to fetch appointments.", details: error.message });
+        if (appointmentError) {
+            console.error("Appointments Query Error:", appointmentError);
+            return res.status(500).json({ error: "Failed to fetch appointments.", details: appointmentError.message });
         }
 
-        res.status(200).json(appointments);
+        if (!appointments || appointments.length === 0) {
+            return res.status(200).json([]); // Return empty if no appointments found
+        }
+
+        // Extract specialist IDs
+        const specialistIds = appointments.map(app => app.specialist_id);
+
+        // Fetch specialist profiles
+        const { data: specialists, error: specialistError } = await supabase
+            .from("specialist_profile")
+            .select("id, speciality, user_id")
+            .in("id", specialistIds);
+
+        if (specialistError) {
+            console.error("Specialists Query Error:", specialistError);
+            return res.status(500).json({ error: "Failed to fetch specialists.", details: specialistError.message });
+        }
+
+        // Extract user IDs
+        const userIds = specialists.map(spec => spec.user_id);
+
+        // Fetch user details
+        const { data: users, error: userError } = await supabase
+            .from("users")
+            .select("id, full_name")
+            .in("id", userIds);
+
+        if (userError) {
+            console.error("Users Query Error:", userError);
+            return res.status(500).json({ error: "Failed to fetch user details.", details: userError.message });
+        }
+
+        // Map data together
+        const specialistsMap = specialists.reduce((acc, spec) => {
+            acc[spec.id] = { speciality: spec.speciality, user_id: spec.user_id };
+            return acc;
+        }, {});
+
+        const usersMap = users.reduce((acc, user) => {
+            acc[user.id] = user.full_name;
+            return acc;
+        }, {});
+
+        const response = appointments.map(app => ({
+            id: app.id,
+            date: app.date,
+            time: app.time,
+            status: app.status,
+            specialist_profile: {
+                speciality: specialistsMap[app.specialist_id]?.speciality || "Unknown",
+                full_name: usersMap[specialistsMap[app.specialist_id]?.user_id] || "Unknown"
+            }
+        }));
+
+        res.status(200).json(response);
     } catch (error) {
         console.error("Server Error:", error);
         res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
