@@ -323,15 +323,29 @@ app.get("/api/appointments/:id", async (req, res) => {
     res.status(200).json(appointment);
 });
 
-// ✅ Fetch Appointments by Specialist ID
-app.get("/api/appointments/:specialist_id", authenticateToken, async (req, res) => {
-    const specialistId = parseInt(req.params.specialist_id, 10);
+// ✅ Fetch Appointments by User ID (Joining Specialist Profile)
+app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.user_id, 10);
 
-    if (!specialistId) {
-        return res.status(400).json({ message: "Specialist ID is required." });
+    if (!userId) {
+        return res.status(400).json({ message: "User ID is required." });
     }
 
-    const { data: appointments, error } = await supabase
+    // Step 1: Get Specialist ID from specialist_profile
+    const { data: specialist, error: specialistError } = await supabase
+        .from("specialist_profile")
+        .select("id")
+        .eq("user_id", userId)
+        .single();
+
+    if (specialistError || !specialist) {
+        return res.status(404).json({ message: "Specialist profile not found." });
+    }
+
+    const specialistId = specialist.id;
+
+    // Step 2: Fetch Appointments using Specialist ID
+    const { data: appointments, error: appointmentsError } = await supabase
         .from("appointments")
         .select(`
             id,
@@ -345,8 +359,8 @@ app.get("/api/appointments/:specialist_id", authenticateToken, async (req, res) 
         .order("date", { ascending: true })
         .order("time", { ascending: true });
 
-    if (error) {
-        return res.status(500).json({ message: "Error fetching appointments.", error });
+    if (appointmentsError) {
+        return res.status(500).json({ message: "Error fetching appointments.", error: appointmentsError });
     }
 
     if (!appointments.length) {
