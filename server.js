@@ -444,12 +444,11 @@ app.put("/api/reviews", authenticateToken, async (req, res) => {
     }
 });
 
-// ✅ Fetch Appointments for Logged-in Customer
 app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) => {
     const customerId = parseInt(req.params.id, 10);
-    console.log(`Fetching appointments for customer ID: ${customerId}`); // ✅ Log the request
+    console.log(`Fetching appointments for customer ID: ${customerId}`); // ✅ Log request
+
     try {
-        // ✅ Fix the join with `specialist_profile`
         const { data: appointments, error } = await supabase
             .from("appointments")
             .select(`
@@ -457,23 +456,23 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
                 date, 
                 time, 
                 status, 
-                 specialist_profile:specialist_id (
-                    speciality,
-                    users:user_id (full_name)
-                )
+                specialist_profile!inner(speciality, users!inner(full_name))
             `)
             .eq("customer_id", customerId)
             .order("date", { ascending: false });
 
         if (error) {
+            console.error("Supabase Query Error:", error);
             return res.status(500).json({ error: "Failed to fetch appointments.", details: error.message });
         }
 
         res.status(200).json(appointments);
     } catch (error) {
+        console.error("Server Error:", error);
         res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
     }
 });
+
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
