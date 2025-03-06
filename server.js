@@ -323,6 +323,48 @@ app.get("/api/appointments/:id", async (req, res) => {
     res.status(200).json(appointment);
 });
 
+// ✅ Fetch Appointments by Specialist ID
+app.get("/api/appointments/:specialist_id", authenticateToken, async (req, res) => {
+    const specialistId = parseInt(req.params.specialist_id, 10);
+
+    if (!specialistId) {
+        return res.status(400).json({ message: "Specialist ID is required." });
+    }
+
+    const { data: appointments, error } = await supabase
+        .from("appointments")
+        .select(`
+            id,
+            date,
+            time,
+            status,
+            customers!inner(user_id, users(full_name)),
+            services(name)
+        `)
+        .eq("specialist_id", specialistId)
+        .order("date", { ascending: true })
+        .order("time", { ascending: true });
+
+    if (error) {
+        return res.status(500).json({ message: "Error fetching appointments.", error });
+    }
+
+    if (!appointments.length) {
+        return res.status(404).json({ message: "No appointments found for this specialist." });
+    }
+
+    // Format response
+    const formattedAppointments = appointments.map(appointment => ({
+        id: appointment.id,
+        customer_name: appointment.customers.users.full_name,
+        service: appointment.services.name,
+        date: appointment.date,
+        time: appointment.time,
+        status: appointment.status
+    }));
+
+    res.status(200).json(formattedAppointments);
+});
 
 // API to create an appointment with validation
 app.post("/api/appointments", async (req, res) => {
