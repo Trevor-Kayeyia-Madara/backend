@@ -327,58 +327,64 @@ app.get("/api/appointments/:id", async (req, res) => {
 app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.user_id, 10);
 
-    if (!userId) {
-        return res.status(400).json({ message: "User ID is required." });
+    if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid User ID." });
     }
 
-    // Step 1: Get Specialist ID from specialist_profile
-    const { data: specialist, error: specialistError } = await supabase
-        .from("specialist_profile")
-        .select("id")
-        .eq("user_id", userId)
-        .single();
+    try {
+        // Step 1: Get Specialist ID from specialist_profile
+        const { data: specialist, error: specialistError } = await supabase
+            .from("specialist_profile")
+            .select("id")
+            .eq("user_id", userId)
+            .single();
 
-    if (specialistError || !specialist) {
-        return res.status(404).json({ message: "Specialist profile not found." });
+        if (specialistError || !specialist) {
+            return res.status(404).json({ message: "Specialist profile not found." });
+        }
+
+        const specialistId = specialist.id;
+
+        // Step 2: Fetch Appointments using Specialist ID
+        const { data: appointments, error: appointmentsError } = await supabase
+            .from("appointments")
+            .select(`
+                id,
+                date,
+                time,
+                status,
+                customers!inner(user_id, users(full_name)),
+                services(name)
+            `)
+            .eq("specialist_id", specialistId)
+            .order("date", { ascending: true })
+            .order("time", { ascending: true });
+
+        if (appointmentsError) {
+            return res.status(500).json({ message: "Error fetching appointments.", error: appointmentsError });
+        }
+
+        if (!appointments || appointments.length === 0) {
+            return res.status(404).json({ message: "No appointments found for this specialist." });
+        }
+
+        // Step 3: Format response
+        const formattedAppointments = appointments.map(appointment => ({
+            id: appointment.id,
+            customer_name: appointment.customers?.users?.full_name || "Unknown",
+            service: appointment.services?.name || "Unknown",
+            date: appointment.date,
+            time: appointment.time,
+            status: appointment.status
+        }));
+
+        return res.status(200).json(formattedAppointments);
+    } catch (error) {
+        console.error("Server Error:", error);
+        return res.status(500).json({ message: "Internal Server Error." });
     }
-
-    const specialistId = specialist.id;
-
-    // Step 2: Fetch Appointments using Specialist ID
-    const { data: appointments, error: appointmentsError } = await supabase
-        .from("appointments")
-        .select(`
-            id,
-            date,
-            time,
-            status,
-            customers!inner(user_id, users(full_name)),
-            services(name)
-        `)
-        .eq("specialist_id", specialistId)
-        .order("date", { ascending: true })
-        .order("time", { ascending: true });
-
-    if (appointmentsError) {
-        return res.status(500).json({ message: "Error fetching appointments.", error: appointmentsError });
-    }
-
-    if (!appointments.length) {
-        return res.status(404).json({ message: "No appointments found for this specialist." });
-    }
-
-    // Format response
-    const formattedAppointments = appointments.map(appointment => ({
-        id: appointment.id,
-        customer_name: appointment.customers.users.full_name,
-        service: appointment.services.name,
-        date: appointment.date,
-        time: appointment.time,
-        status: appointment.status
-    }));
-
-    res.status(200).json(formattedAppointments);
 });
+
 
 // API to create an appointment with validation
 app.post("/api/appointments", async (req, res) => {
