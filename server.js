@@ -194,6 +194,57 @@ app.get("/api/specialists", async (req, res) => {
     }
 });
 
+app.get("/api/specialists/user/:user_id", async (req, res) => {
+    const userId = parseInt(req.params.user_id, 10);
+
+    const { data: specialist, error } = await supabase
+        .from("specialist_profile")
+        .select("id, user_id, speciality, service_rates, location, rating, users(full_name)")
+        .eq("user_id", userId)  // ✅ Corrected query to use user_id
+        .single();
+
+    if (error || !specialist) {
+        return res.status(404).json({ error: "Specialist profile not found." });
+    }
+
+    res.json({
+        id: specialist.id,
+        speciality: specialist.speciality,
+        service_rates: specialist.service_rates,
+        location: specialist.location,
+        rating: specialist.rating,
+        full_name: specialist.users.full_name
+    });
+});
+
+app.put("/api/specialists/user/:user_id", async (req, res) => {
+    const userId = parseInt(req.params.user_id, 10);
+    const { speciality, service_rates, location, rating } = req.body;  
+
+    // Update query based on user_id
+    const { data, error } = await supabase
+        .from("specialist_profile")
+        .update({
+            speciality,
+            service_rates,
+            location,
+            rating
+        })
+        .eq("user_id", userId)
+        .select();  // Returns updated data
+
+    if (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
+    if (!data || data.length === 0) {
+        return res.status(404).json({ error: "Specialist profile not found." });
+    }
+
+    res.json({ message: "Profile updated successfully", specialist: data[0] });
+});
+
+
 app.get("/api/specialists/:id", async (req, res) => {
     const specialistId = parseInt(req.params.id, 10);
 
