@@ -667,62 +667,75 @@ app.post("/api/chats",  async (req, res) => {
 // ✅ Get all chats for a user
 app.get("/api/chats/:userId", async (req, res) => {
     const { userId } = req.params;
-    console.log("Received request for chats with userId:", userId);
+    console.log("🟢 Received request for chats with userId:", userId);
 
     try {
-        // Fetch chats where user is either a specialist or a client
+        // Step 1: Fetch chats where user is either a specialist or a client
         const { data: chats, error: chatError } = await supabase
             .from("chats")
             .select("id, specialist_id, client_id")
             .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
 
         if (chatError) {
-            console.error("Error fetching chats:", chatError);
+            console.error("🔴 Error fetching chats:", chatError);
             return res.status(500).json({ error: "Failed to fetch chats." });
         }
 
+        console.log("🟡 Fetched raw chats:", chats);
+
         if (!chats.length) {
+            console.log("⚪ No chats found.");
             return res.status(200).json({ chats: [] });
         }
 
-        // Extract user IDs to fetch names
+        // Step 2: Extract other user IDs
         const otherUserIds = chats.map(chat =>
             chat.specialist_id == userId ? chat.client_id : chat.specialist_id
         );
 
-        // Fetch full names from users table
+        console.log("🟠 Other user IDs to fetch names for:", otherUserIds);
+
+        // Step 3: Fetch full names from users table
         const { data: users, error: userError } = await supabase
             .from("users")
             .select("id, fullname")
             .in("id", otherUserIds);
 
         if (userError) {
-            console.error("Error fetching user names:", userError);
+            console.error("🔴 Error fetching user names:", userError);
             return res.status(500).json({ error: "Failed to fetch user names." });
         }
 
-        // Create a mapping of user ID to fullname
+        console.log("🟢 Fetched users:", users);
+
+        // Step 4: Create a mapping of user ID to fullname
         const userMap = users.reduce((acc, user) => {
             acc[user.id] = user.fullname;
             return acc;
         }, {});
 
-        // Attach the correct name to each chat
-        const formattedChats = chats.map(chat => ({
-            id: chat.id,
-            name: userMap[chat.specialist_id == userId ? chat.client_id : chat.specialist_id] || "Unknown User",
-            specialist_id: chat.specialist_id,
-            client_id: chat.client_id
-        }));
+        console.log("🟢 User ID to Name Mapping:", userMap);
 
-        console.log("Fetched chats with names:", formattedChats);
+        // Step 5: Attach the correct name to each chat
+        const formattedChats = chats.map(chat => {
+            const otherUserId = chat.specialist_id == userId ? chat.client_id : chat.specialist_id;
+            return {
+                id: chat.id,
+                name: userMap[otherUserId] || "Unknown User",
+                specialist_id: chat.specialist_id,
+                client_id: chat.client_id
+            };
+        });
+
+        console.log("🟢 Formatted chats:", formattedChats);
         res.status(200).json({ chats: formattedChats });
 
     } catch (error) {
-        console.error("Server error fetching chats:", error);
+        console.error("🔴 Server error fetching chats:", error);
         res.status(500).json({ error: "Server error fetching chats." });
     }
 });
+
 
 
 // ✅ Send a message
