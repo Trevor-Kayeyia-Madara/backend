@@ -698,7 +698,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         // Step 3: Fetch full names from users table
         const { data: users, error: userError } = await supabase
             .from("users")
-            .select("id, fullname")
+            .select("id, full_name")
             .in("id", otherUserIds);
 
         if (userError) {
