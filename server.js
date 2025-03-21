@@ -670,7 +670,7 @@ app.get("/api/chats/:userId", async (req, res) => {
     console.log("🟢 Received request for chats with userId:", userId);
 
     try {
-        // Step 1: Fetch chats where user is either a specialist or a client
+        // Fetch chats where user is either a specialist or a client
         const { data: chats, error: chatError } = await supabase
             .from("chats")
             .select("chat_id, specialist_id, client_id")
@@ -688,17 +688,17 @@ app.get("/api/chats/:userId", async (req, res) => {
             return res.status(200).json({ chats: [] });
         }
 
-        // Step 2: Extract other user IDs
+        // Extract other user IDs
         const otherUserIds = chats.map(chat =>
             chat.specialist_id == userId ? chat.client_id : chat.specialist_id
         );
 
         console.log("🟠 Other user IDs to fetch names for:", otherUserIds);
 
-        // Step 3: Fetch full names from users table
+        // Fetch full names from users table
         const { data: users, error: userError } = await supabase
             .from("users")
-            .select("id, full_name")
+            .select("id, full_name") // Ensure correct column name
             .in("id", otherUserIds);
 
         if (userError) {
@@ -708,20 +708,20 @@ app.get("/api/chats/:userId", async (req, res) => {
 
         console.log("🟢 Fetched users:", users);
 
-        // Step 4: Create a mapping of user ID to fullname
+        // Create a mapping of user ID to full_name
         const userMap = users.reduce((acc, user) => {
-            acc[user.id] = user.fullname;
+            acc[user.id] = user.full_name; // Fix column name
             return acc;
         }, {});
 
         console.log("🟢 User ID to Name Mapping:", userMap);
 
-        // Step 5: Attach the correct name to each chat
+        // Attach the correct name to each chat
         const formattedChats = chats.map(chat => {
             const otherUserId = chat.specialist_id == userId ? chat.client_id : chat.specialist_id;
             return {
-                id: chat.id,
-                name: userMap[otherUserId] || "Unknown User",
+                id: chat.chat_id, // Fix: use chat_id instead of id
+                name: userMap[otherUserId] || "Unknown User", // Fix: Ensure correct name mapping
                 specialist_id: chat.specialist_id,
                 client_id: chat.client_id
             };
@@ -735,6 +735,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         res.status(500).json({ error: "Server error fetching chats." });
     }
 });
+;
 
 
 
