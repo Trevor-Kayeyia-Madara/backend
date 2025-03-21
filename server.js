@@ -770,7 +770,7 @@ app.get("/api/specialist/:userId", async (req, res) => {
         const { data, error } = await supabase
             .from("specialist_profile")
             .select("id")
-            .eq("user_id", userId)
+            .eq("id", userId)
             .single(); // Get only one record
 
         if (error) {
