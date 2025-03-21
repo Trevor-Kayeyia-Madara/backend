@@ -667,26 +667,63 @@ app.post("/api/chats",  async (req, res) => {
 // ✅ Get all chats for a user
 app.get("/api/chats/:userId", async (req, res) => {
     const { userId } = req.params;
-    console.log("Received request for chats with userId:", userId); // Log userId
+    console.log("Received request for chats with userId:", userId);
 
     try {
-        const { data, error } = await supabase
+        // Fetch chats where user is either a specialist or a client
+        const { data: chats, error: chatError } = await supabase
             .from("chats")
-            .select("*")
+            .select("id, specialist_id, client_id")
             .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
 
-        if (error) {
-            console.error("Error fetching chats:", error); // Log error if any
+        if (chatError) {
+            console.error("Error fetching chats:", chatError);
             return res.status(500).json({ error: "Failed to fetch chats." });
         }
 
-        console.log("Fetched chats:", data); // Log fetched chat data
-        res.status(200).json({ chats: data });
+        if (!chats.length) {
+            return res.status(200).json({ chats: [] });
+        }
+
+        // Extract user IDs to fetch names
+        const otherUserIds = chats.map(chat =>
+            chat.specialist_id == userId ? chat.client_id : chat.specialist_id
+        );
+
+        // Fetch full names from users table
+        const { data: users, error: userError } = await supabase
+            .from("users")
+            .select("id, fullname")
+            .in("id", otherUserIds);
+
+        if (userError) {
+            console.error("Error fetching user names:", userError);
+            return res.status(500).json({ error: "Failed to fetch user names." });
+        }
+
+        // Create a mapping of user ID to fullname
+        const userMap = users.reduce((acc, user) => {
+            acc[user.id] = user.fullname;
+            return acc;
+        }, {});
+
+        // Attach the correct name to each chat
+        const formattedChats = chats.map(chat => ({
+            id: chat.id,
+            name: userMap[chat.specialist_id == userId ? chat.client_id : chat.specialist_id] || "Unknown User",
+            specialist_id: chat.specialist_id,
+            client_id: chat.client_id
+        }));
+
+        console.log("Fetched chats with names:", formattedChats);
+        res.status(200).json({ chats: formattedChats });
+
     } catch (error) {
-        console.error("Server error fetching chats:", error); // Log any unexpected server error
+        console.error("Server error fetching chats:", error);
         res.status(500).json({ error: "Server error fetching chats." });
     }
 });
+
 
 // ✅ Send a message
 app.post("/api/messages",  async (req, res) => {
