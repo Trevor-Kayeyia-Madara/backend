@@ -646,84 +646,84 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
         res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
     }
 });
-//Chats
-app.post("/api/chats",  async (req, res) => {
-    const { specialist_id, client_id } = req.body;
+// //Chats
+// app.post("/api/chats",  async (req, res) => {
+//     const { specialist_id, client_id } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from("chats")
-            .insert([{ specialist_id, client_id }])
-            .select();
+//     try {
+//         const { data, error } = await supabase
+//             .from("chats")
+//             .insert([{ specialist_id, client_id }])
+//             .select();
 
-        if (error) return res.status(500).json({ error: "Failed to create chat." });
+//         if (error) return res.status(500).json({ error: "Failed to create chat." });
 
-        res.status(201).json({ message: "Chat created successfully!", chat: data[0] });
-    } catch (error) {
-        res.status(500).json({ error: "Server error creating chat." });
-    }
-});
+//         res.status(201).json({ message: "Chat created successfully!", chat: data[0] });
+//     } catch (error) {
+//         res.status(500).json({ error: "Server error creating chat." });
+//     }
+// });
 
-// ✅ Get all chats for a user
-app.get("/api/chats/:userId", async (req, res) => {
-    const { userId } = req.params;
-    console.log("Received request for chats with userId:", userId); // Log userId
+// // ✅ Get all chats for a user
+// app.get("/api/chats/:userId", async (req, res) => {
+//     const { userId } = req.params;
+//     console.log("Received request for chats with userId:", userId); // Log userId
 
-    try {
-        const { data, error } = await supabase
-            .from("chats")
-            .select("*")
-            .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
+//     try {
+//         const { data, error } = await supabase
+//             .from("chats")
+//             .select("*")
+//             .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
 
-        if (error) {
-            console.error("Error fetching chats:", error); // Log error if any
-            return res.status(500).json({ error: "Failed to fetch chats." });
-        }
+//         if (error) {
+//             console.error("Error fetching chats:", error); // Log error if any
+//             return res.status(500).json({ error: "Failed to fetch chats." });
+//         }
 
-        console.log("Fetched chats:", data); // Log fetched chat data
-        res.status(200).json({ chats: data });
-    } catch (error) {
-        console.error("Server error fetching chats:", error); // Log any unexpected server error
-        res.status(500).json({ error: "Server error fetching chats." });
-    }
-});
+//         console.log("Fetched chats:", data); // Log fetched chat data
+//         res.status(200).json({ chats: data });
+//     } catch (error) {
+//         console.error("Server error fetching chats:", error); // Log any unexpected server error
+//         res.status(500).json({ error: "Server error fetching chats." });
+//     }
+// });
 
-// ✅ Send a message
-app.post("/api/messages",  async (req, res) => {
-    const { chat_id, sender_id, message } = req.body;
+// // ✅ Send a message
+// app.post("/api/messages",  async (req, res) => {
+//     const { chat_id, sender_id, message } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from("messages")
-            .insert([{ chat_id, sender_id, message }])
-            .select();
+//     try {
+//         const { data, error } = await supabase
+//             .from("messages")
+//             .insert([{ chat_id, sender_id, message }])
+//             .select();
 
-        if (error) return res.status(500).json({ error: "Failed to send message." });
+//         if (error) return res.status(500).json({ error: "Failed to send message." });
 
-        res.status(201).json({ message: "Message sent successfully!", messageData: data[0] });
-    } catch (error) {
-        res.status(500).json({ error: "Server error sending message." });
-    }
-});
+//         res.status(201).json({ message: "Message sent successfully!", messageData: data[0] });
+//     } catch (error) {
+//         res.status(500).json({ error: "Server error sending message." });
+//     }
+// });
 
-// ✅ Get messages in a chat
-app.get("/api/messages/:chatId", async (req, res) => {
-    const { chatId } = req.params;
+// // ✅ Get messages in a chat
+// app.get("/api/messages/:chatId", async (req, res) => {
+//     const { chatId } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("chat_id", chatId)
-            .order("created_at", { ascending: true });
+//     try {
+//         const { data, error } = await supabase
+//             .from("messages")
+//             .select("*")
+//             .eq("chat_id", chatId)
+//             .order("created_at", { ascending: true });
 
-        if (error) return res.status(500).json({ error: "Failed to fetch messages." });
+//         if (error) return res.status(500).json({ error: "Failed to fetch messages." });
 
-        res.status(200).json({ messages: data });
-    } catch (error) {
-        res.status(500).json({ error: "Server error fetching messages." });
-    }
-});
+//         res.status(200).json({ messages: data });
+//     } catch (error) {
+//         res.status(500).json({ error: "Server error fetching messages." });
+//     }
+// });
 
 
 // ✅ Start Server
