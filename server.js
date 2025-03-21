@@ -673,7 +673,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         // Step 1: Fetch chats where user is either a specialist or a client
         const { data: chats, error: chatError } = await supabase
             .from("chats")
-            .select("id, specialist_id, client_id")
+            .select("chat_id, specialist_id, client_id")
             .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
 
         if (chatError) {
