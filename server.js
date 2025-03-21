@@ -724,6 +724,45 @@ app.get("/api/messages/:chatId", async (req, res) => {
         res.status(500).json({ error: "Server error fetching messages." });
     }
 });
+// CLIENT CHAT
+app.post("/api/chats/initiate", async (req, res) => {
+    const { user1, user2 } = req.body;
+
+    try {
+        // Check if chat already exists
+        const { data: existingChat, error: existingChatError } = await supabase
+            .from("chats")
+            .select()
+            .or(`and(specialist_id.eq.${user1}, client_id.eq.${user2}), and(specialist_id.eq.${user2}, client_id.eq.${user1})`);
+
+        if (existingChatError) {
+            console.error("Error checking existing chat:", existingChatError);
+            return res.status(500).json({ error: "Error checking existing chat" });
+        }
+
+        if (existingChat.length > 0) {
+            return res.json({ chat: existingChat[0] });
+        }
+
+        // Create a new chat if it doesn't exist
+        const { data: newChat, error: newChatError } = await supabase
+            .from("chats")
+            .insert([{ specialist_id: user1, client_id: user2 }])
+            .select();
+
+        if (newChatError) {
+            console.error("Error creating chat:", newChatError);
+            return res.status(500).json({ error: "Failed to create chat" });
+        }
+
+        res.status(201).json({ chat: newChat[0] });
+
+    } catch (error) {
+        console.error("Server error initiating chat:", error);
+        res.status(500).json({ error: "Server error initiating chat" });
+    }
+});
+
 
 
 // ✅ Start Server
