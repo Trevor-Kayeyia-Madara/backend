@@ -762,6 +762,30 @@ app.post("/api/chats/initiate", async (req, res) => {
         res.status(500).json({ error: "Server error initiating chat" });
     }
 });
+// get specialist
+app.get("/api/specialist/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const { data, error } = await supabase
+            .from("specialist_profile")
+            .select("id")
+            .eq("user_id", userId)
+            .single(); // Get only one record
+
+        if (error) {
+            return res.status(500).json({ message: "Error fetching specialist data.", error });
+        }
+
+        if (!data) {
+            return res.status(404).json({ message: "Specialist not found." });
+        }
+
+        res.status(200).json({ specialistId: data.id });
+    } catch (error) {
+        res.status(500).json({ message: "Server error while fetching specialist data." });
+    }
+});
 
 
 
