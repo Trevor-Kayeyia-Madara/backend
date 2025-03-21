@@ -667,6 +667,7 @@ app.post("/api/chats",  async (req, res) => {
 // ✅ Get all chats for a user
 app.get("/api/chats/:userId", async (req, res) => {
     const { userId } = req.params;
+    console.log("Received request for chats with userId:", userId); // Log userId
 
     try {
         const { data, error } = await supabase
@@ -674,13 +675,19 @@ app.get("/api/chats/:userId", async (req, res) => {
             .select("*")
             .or(`specialist_id.eq.${userId},client_id.eq.${userId}`);
 
-        if (error) return res.status(500).json({ error: "Failed to fetch chats." });
+        if (error) {
+            console.error("Error fetching chats:", error); // Log error if any
+            return res.status(500).json({ error: "Failed to fetch chats." });
+        }
 
+        console.log("Fetched chats:", data); // Log fetched chat data
         res.status(200).json({ chats: data });
     } catch (error) {
+        console.error("Server error fetching chats:", error); // Log any unexpected server error
         res.status(500).json({ error: "Server error fetching chats." });
     }
 });
+
 // ✅ Send a message
 app.post("/api/messages",  async (req, res) => {
     const { chat_id, sender_id, message } = req.body;
