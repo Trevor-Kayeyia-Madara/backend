@@ -814,29 +814,29 @@ app.post("/api/chats/initiate", async (req, res) => {
     }
 });
 // get specialist
-app.get("/api/specialist/:userId", async (req, res) => {
-    try {
-        const { userId } = req.params;
+// app.get("/api/specialist/:userId", async (req, res) => {
+//     try {
+//         const { userId } = req.params;
 
-        const { data, error } = await supabase
-            .from("specialist_profile")
-            .select("id")
-            .eq("id", userId)
-            .single(); // Get only one record
+//         const { data, error } = await supabase
+//             .from("specialist_profile")
+//             .select("id")
+//             .eq("id", userId)
+//             .single(); // Get only one record
 
-        if (error) {
-            return res.status(500).json({ message: "Error fetching specialist data.", error });
-        }
+//         if (error) {
+//             return res.status(500).json({ message: "Error fetching specialist data.", error });
+//         }
 
-        if (!data) {
-            return res.status(404).json({ message: "Specialist not found." });
-        }
+//         if (!data) {
+//             return res.status(404).json({ message: "Specialist not found." });
+//         }
 
-        res.status(200).json({ specialistId: data.id });
-    } catch (error) {
-        res.status(500).json({ message: "Server error while fetching specialist data." });
-    }
-});
+//         res.status(200).json({ specialistId: data.id });
+//     } catch (error) {
+//         res.status(500).json({ message: "Server error while fetching specialist data." });
+//     }
+// });
 
 
 
