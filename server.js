@@ -654,7 +654,7 @@ app.get("/api/chats/:userId", async (req, res) => {
     try {
         const { data: chats, error } = await supabase
             .from("chats")
-            .select("chat_id, client_id, specialist_id, created_at, specialist_profile(user_id)")
+            .select("chat_id, client_id, specialist_id, created_at")
             .or(`client_id.eq.${userId},specialist_id.eq.${userId}`)
             .order("created_at", { ascending: false });
 
@@ -663,21 +663,41 @@ app.get("/api/chats/:userId", async (req, res) => {
             return res.status(500).json({ error: "Failed to fetch chats.", details: error.message });
         }
 
-        // Fetch additional data for each chat
+        // Fetch additional details (names) for each chat
         const chatsWithDetails = await Promise.all(
             chats.map(async (chat) => {
-                // Fetch the specialist's full name
-                if (chat.specialist_profile) {
-                    const { data: user, error: userError } = await supabase
+                let counterpartId, counterpartName = "";
+
+                // Determine whether the user is the client or the specialist in the chat
+                if (chat.client_id === userId) {
+                    counterpartId = chat.specialist_id;
+
+                    // Fetch specialist name
+                    const { data: specialist, error: specialistError } = await supabase
                         .from("users")
                         .select("full_name")
-                        .eq("id", chat.specialist_profile.user_id)
+                        .eq("id", chat.specialist_id)
                         .single();
 
-                    if (userError) {
-                        console.error("User Query Error:", userError);
+                    if (specialistError) {
+                        console.error("Specialist Query Error:", specialistError);
                     } else {
-                        chat.specialist_name = user.full_name;
+                        counterpartName = specialist.full_name;
+                    }
+                } else {
+                    counterpartId = chat.client_id;
+
+                    // Fetch client name
+                    const { data: client, error: clientError } = await supabase
+                        .from("users")
+                        .select("full_name")
+                        .eq("id", chat.client_id)
+                        .single();
+
+                    if (clientError) {
+                        console.error("Client Query Error:", clientError);
+                    } else {
+                        counterpartName = client.full_name;
                     }
                 }
 
@@ -690,14 +710,12 @@ app.get("/api/chats/:userId", async (req, res) => {
                     .limit(1)
                     .single();
 
-                if (lastMessageError) {
-                    console.error("Last Message Query Error:", lastMessageError);
-                } else if (lastMessage) {
-                    chat.last_message = lastMessage.message;
-                    chat.last_message_time = lastMessage.timestamp;
-                }
-
-                return chat;
+                return {
+                    ...chat,
+                    counterpart_name: counterpartName,
+                    last_message: lastMessage?.message || "",
+                    last_message_time: lastMessage?.timestamp || null,
+                };
             })
         );
 
@@ -709,7 +727,7 @@ app.get("/api/chats/:userId", async (req, res) => {
 });
 
 // 2️⃣ Get Messages for a Chat
-app.get("/api/chats/:chatId/messages",  async (req, res) => {
+app.get("/api/chats/:chatId/messages", async (req, res) => {
     const chatId = parseInt(req.params.chatId, 10);
     console.log(`Fetching messages for chat ID: ${chatId}`);
 
@@ -732,7 +750,7 @@ app.get("/api/chats/:chatId/messages",  async (req, res) => {
     }
 });
 // 3️⃣ Send a Message
-app.post("/api/chats/:chatId/messages",  async (req, res) => {
+app.post("/api/chats/:chatId/messages", async (req, res) => {
     const chatId = parseInt(req.params.chatId, 10);
     const { sender_id, message } = req.body;
 
@@ -741,7 +759,7 @@ app.post("/api/chats/:chatId/messages",  async (req, res) => {
     }
 
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from("messages")
             .insert([{ chat_id: chatId, sender_id, message }]);
 
@@ -756,7 +774,6 @@ app.post("/api/chats/:chatId/messages",  async (req, res) => {
         res.status(500).json({ error: "Server error while sending message.", details: error.message });
     }
 });
-
 // 4️⃣ Start a New Chat
 app.post("/api/chats",  async (req, res) => {
     const { client_id, specialist_id } = req.body;
