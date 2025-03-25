@@ -647,7 +647,7 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
     }
 });
 //1️⃣ Get All Chats for a Specialist or Client
-app.get("/api/chats/:userId", authenticateToken, async (req, res) => {
+app.get("/api/chats/:userId",  async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     console.log(`Fetching chats for user ID: ${userId}`);
 
@@ -670,7 +670,7 @@ app.get("/api/chats/:userId", authenticateToken, async (req, res) => {
     }
 });
 // 2️⃣ Get Messages for a Chat
-app.get("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
+app.get("/api/chats/:chatId/messages",  async (req, res) => {
     const chatId = parseInt(req.params.chatId, 10);
     console.log(`Fetching messages for chat ID: ${chatId}`);
 
@@ -693,7 +693,7 @@ app.get("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
     }
 });
 // 3️⃣ Send a Message
-app.post("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
+app.post("/api/chats/:chatId/messages",  async (req, res) => {
     const chatId = parseInt(req.params.chatId, 10);
     const { sender_id, message } = req.body;
 
@@ -719,7 +719,7 @@ app.post("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
 });
 
 // 4️⃣ Start a New Chat
-app.post("/api/chats", authenticateToken, async (req, res) => {
+app.post("/api/chats",  async (req, res) => {
     const { client_id, specialist_id } = req.body;
 
     if (!client_id || !specialist_id) {
@@ -758,7 +758,7 @@ app.post("/api/chats", authenticateToken, async (req, res) => {
     }
 });
 // Chat Create
-app.post("/api/chats/create", authenticateToken, async (req, res) => {
+app.post("/api/chats/create",  async (req, res) => {
     const { client_id, specialist_id } = req.body;
 
     if (!client_id || !specialist_id) {
