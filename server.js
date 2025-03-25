@@ -706,17 +706,28 @@ app.get("/api/chats/:userId", async (req, res) => {
                 } else {
                     counterpartId = chat.client_id;
 
-                    // Fetch client name
-                    const { data: client, error: clientNameError } = await supabase
-                        .from("users")
-                        .select("full_name")
+                    // Fetch client user_id from customers table
+                    const { data: customer, error: customerError } = await supabase
+                        .from("customers")
+                        .select("user_id")
                         .eq("id", chat.client_id)
                         .single();
 
-                    if (clientNameError) {
-                        console.error("Client Name Query Error:", clientNameError);
-                    } else {
-                        counterpartName = client?.full_name || "Unknown Client";
+                    if (customerError) {
+                        console.error("Customer Query Error:", customerError);
+                    } else if (customer) {
+                        // Fetch client full name from users table
+                        const { data: client, error: clientNameError } = await supabase
+                            .from("users")
+                            .select("full_name")
+                            .eq("id", customer.user_id)
+                            .single();
+
+                        if (clientNameError) {
+                            console.error("Client Name Query Error:", clientNameError);
+                        } else {
+                            counterpartName = client?.full_name || "Unknown Client";
+                        }
                     }
                 }
 
@@ -744,6 +755,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
     }
 });
+
 
 
 
