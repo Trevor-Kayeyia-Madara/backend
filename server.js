@@ -654,10 +654,10 @@ app.get("/api/chats/:userId", async (req, res) => {
     try {
         let specialistId = null;
 
-        // 🔍 Check if the user is a specialist and get their specialist_id
+        // 🔍 Check if the user is a specialist and get their specialist ID
         const { data: specialistProfile, error: specialistError } = await supabase
             .from("specialist_profile")
-            .select("id")
+            .select("id") // ✅ Use "id" as per your database
             .eq("user_id", userId)
             .single();
 
@@ -667,7 +667,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         }
 
         if (specialistProfile) {
-            specialistId = specialistProfile.specialist_id;
+            specialistId = specialistProfile.id; // ✅ Assign the correct ID
             console.log(`User is a specialist with ID: ${specialistId}`);
         }
 
@@ -701,7 +701,7 @@ app.get("/api/chats/:userId", async (req, res) => {
                     if (specialistNameError) {
                         console.error("Specialist Name Query Error:", specialistNameError);
                     } else {
-                        counterpartName = specialist.full_name;
+                        counterpartName = specialist?.full_name || "Unknown Specialist";
                     }
                 } else {
                     counterpartId = chat.client_id;
@@ -716,7 +716,7 @@ app.get("/api/chats/:userId", async (req, res) => {
                     if (clientNameError) {
                         console.error("Client Name Query Error:", clientNameError);
                     } else {
-                        counterpartName = client.full_name;
+                        counterpartName = client?.full_name || "Unknown Client";
                     }
                 }
 
@@ -744,6 +744,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
     }
 });
+
 
 
 // 2️⃣ Get Messages for a Chat
