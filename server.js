@@ -757,6 +757,56 @@ app.post("/api/chats", authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Server error while creating chat.", details: error.message });
     }
 });
+// Chat Create
+app.post("/api/chats/create", authenticateToken, async (req, res) => {
+    const { client_id, specialist_id } = req.body;
+
+    if (!client_id || !specialist_id) {
+        return res.status(400).json({ error: "Client ID and Specialist ID are required." });
+    }
+
+    try {
+        console.log(`Creating or fetching chat between Client ID: ${client_id} and Specialist ID: ${specialist_id}`);
+
+        // Check if chat already exists
+        const { data: existingChats, error: existingError } = await supabase
+            .from("chats")
+            .select("chat_id")
+            .or(`client_id.eq.${client_id},specialist_id.eq.${specialist_id}`)
+            .eq("client_id", client_id)
+            .eq("specialist_id", specialist_id)
+            .limit(1);
+
+        if (existingError) {
+            console.error("Chat Query Error:", existingError);
+            return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
+        }
+
+        // If chat already exists, return it
+        if (existingChats.length > 0) {
+            console.log("Chat already exists:", existingChats[0]);
+            return res.status(200).json({ chat: existingChats[0] });
+        }
+
+        // Create new chat if it doesn't exist
+        const { data: newChat, error: createError } = await supabase
+            .from("chats")
+            .insert([{ client_id, specialist_id }])
+            .select("chat_id, client_id, specialist_id, created_at")
+            .single();
+
+        if (createError) {
+            console.error("Chat Creation Error:", createError);
+            return res.status(500).json({ error: "Failed to create chat.", details: createError.message });
+        }
+
+        console.log("New chat created:", newChat);
+        res.status(201).json({ chat: newChat });
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Server error while creating chat.", details: error.message });
+    }
+});
 
 
 
