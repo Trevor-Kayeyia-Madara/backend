@@ -647,14 +647,14 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
     }
 });
 //1️⃣ Get All Chats for a Specialist or Client
-app.get("/api/chats/:userId",  async (req, res) => {
+app.get("/api/chats/:userId", async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     console.log(`Fetching chats for user ID: ${userId}`);
 
     try {
         const { data: chats, error } = await supabase
             .from("chats")
-            .select("chat_id, client_id, specialist_id, created_at")
+            .select("chat_id, client_id, specialist_id, created_at, specialist_profile(user_id)")
             .or(`client_id.eq.${userId},specialist_id.eq.${userId}`)
             .order("created_at", { ascending: false });
 
@@ -663,12 +663,33 @@ app.get("/api/chats/:userId",  async (req, res) => {
             return res.status(500).json({ error: "Failed to fetch chats.", details: error.message });
         }
 
-        res.status(200).json(chats);
+        // Fetch full_name for each specialist
+        const chatsWithNames = await Promise.all(
+            chats.map(async (chat) => {
+                if (chat.specialist_profile) {
+                    const { data: user, error: userError } = await supabase
+                        .from("users")
+                        .select("full_name")
+                        .eq("id", chat.specialist_profile.user_id)
+                        .single();
+
+                    if (userError) {
+                        console.error("User Query Error:", userError);
+                    } else {
+                        chat.specialist_name = user.full_name;
+                    }
+                }
+                return chat;
+            })
+        );
+
+        res.status(200).json(chatsWithNames);
     } catch (error) {
         console.error("Server Error:", error);
         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
     }
 });
+
 // 2️⃣ Get Messages for a Chat
 app.get("/api/chats/:chatId/messages",  async (req, res) => {
     const chatId = parseInt(req.params.chatId, 10);
