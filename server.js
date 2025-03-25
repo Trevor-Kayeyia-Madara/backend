@@ -768,25 +768,25 @@ app.post("/api/chats/create", async (req, res) => {
     try {
         console.log(`Creating or fetching chat between Client ID: ${client_id} and Specialist ID: ${specialist_id}`);
 
-        // Check if chat already exists
-        const { data: existingChats, error: existingError } = await supabase
+        // 1️⃣ First, check if the chat already exists
+        const { data: existingChat, error: existingError } = await supabase
             .from("chats")
             .select("chat_id")
             .eq("client_id", client_id)
             .eq("specialist_id", specialist_id)
-            .limit(1);
+            .single(); // Expecting only one match
 
-        if (existingError) {
+        if (existingError && existingError.code !== "PGRST116") { // Ignore "no rows found" error
             console.error("Chat Query Error:", existingError);
             return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
         }
 
         let chatId;
-        if (existingChats.length > 0) {
-            console.log("Chat already exists:", existingChats[0]);
-            chatId = existingChats[0].chat_id;
+        if (existingChat) {
+            console.log("Chat already exists:", existingChat);
+            chatId = existingChat.chat_id;
         } else {
-            // Create new chat if it doesn't exist
+            // 2️⃣ If no chat exists, create a new one
             const { data: newChat, error: createError } = await supabase
                 .from("chats")
                 .insert([{ client_id, specialist_id }])
@@ -802,11 +802,11 @@ app.post("/api/chats/create", async (req, res) => {
             chatId = newChat.chat_id;
         }
 
-        // Fetch all chats where client_id matches userId
+        // 3️⃣ Fetch all chats where client_id matches userId
         const { data: chats, error: fetchError } = await supabase
             .from("chats")
             .select("chat_id, client_id, specialist_id, created_at")
-            .eq("client_id", client_id)
+            .or(`client_id.eq.${client_id},specialist_id.eq.${client_id}`)
             .order("created_at", { ascending: false });
 
         if (fetchError) {
@@ -821,6 +821,7 @@ app.post("/api/chats/create", async (req, res) => {
         res.status(500).json({ error: "Server error while creating or fetching chats.", details: error.message });
     }
 });
+
 
 
 
