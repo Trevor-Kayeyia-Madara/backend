@@ -657,7 +657,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         // 🔍 Check if the user is a specialist and get their specialist ID
         const { data: specialistProfile, error: specialistError } = await supabase
             .from("specialist_profile")
-            .select("id") // ✅ Use "id" as per your database
+            .select("id")
             .eq("user_id", userId)
             .single();
 
@@ -667,7 +667,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         }
 
         if (specialistProfile) {
-            specialistId = specialistProfile.id; // ✅ Assign the correct ID
+            specialistId = specialistProfile.id;
             console.log(`User is a specialist with ID: ${specialistId}`);
         }
 
@@ -683,55 +683,44 @@ app.get("/api/chats/:userId", async (req, res) => {
             return res.status(500).json({ error: "Failed to fetch chats.", details: chatsError.message });
         }
 
-        // 🔍 Fetch counterpart names dynamically
+        // 🔍 Fetch both specialist and client names
         const chatsWithDetails = await Promise.all(
             chats.map(async (chat) => {
-                let counterpartId, counterpartName = "";
+                let specialistName = "Unknown Specialist";
+                let clientName = "Unknown Client";
 
-                if (chat.client_id === userId) {
-                    counterpartId = chat.specialist_id;
+                // Fetch specialist name
+                const { data: specialist, error: specialistNameError } = await supabase
+                    .from("users")
+                    .select("full_name")
+                    .eq("id", chat.specialist_id)
+                    .single();
 
-                    // Fetch specialist name
-                    const { data: specialist, error: specialistNameError } = await supabase
+                if (!specialistNameError && specialist) {
+                    specialistName = specialist.full_name;
+                }
+
+                // Fetch client user_id from customers table
+                const { data: customer, error: customerError } = await supabase
+                    .from("customers")
+                    .select("user_id")
+                    .eq("id", chat.client_id)
+                    .single();
+
+                if (!customerError && customer) {
+                    // Fetch client full name
+                    const { data: client, error: clientNameError } = await supabase
                         .from("users")
                         .select("full_name")
-                        .eq("id", chat.specialist_id)
+                        .eq("id", customer.user_id)
                         .single();
 
-                    if (specialistNameError) {
-                        console.error("Specialist Name Query Error:", specialistNameError);
-                    } else {
-                        counterpartName = specialist?.full_name || "Unknown Specialist";
-                    }
-                } else {
-                    counterpartId = chat.client_id;
-
-                    // Fetch client user_id from customers table
-                    const { data: customer, error: customerError } = await supabase
-                        .from("customers")
-                        .select("user_id")
-                        .eq("id", chat.client_id)
-                        .single();
-
-                    if (customerError) {
-                        console.error("Customer Query Error:", customerError);
-                    } else if (customer) {
-                        // Fetch client full name from users table
-                        const { data: client, error: clientNameError } = await supabase
-                            .from("users")
-                            .select("full_name")
-                            .eq("id", customer.user_id)
-                            .single();
-
-                        if (clientNameError) {
-                            console.error("Client Name Query Error:", clientNameError);
-                        } else {
-                            counterpartName = client?.full_name || "Unknown Client";
-                        }
+                    if (!clientNameError && client) {
+                        clientName = client.full_name;
                     }
                 }
 
-                // Fetch the last message for the chat
+                // Fetch last message for the chat
                 const { data: lastMessage, error: lastMessageError } = await supabase
                     .from("messages")
                     .select("message, timestamp")
@@ -742,7 +731,8 @@ app.get("/api/chats/:userId", async (req, res) => {
 
                 return {
                     ...chat,
-                    counterpart_name: counterpartName,
+                    specialist_name: specialistName,
+                    client_name: clientName,
                     last_message: lastMessage?.message || "",
                     last_message_time: lastMessage?.timestamp || null,
                 };
