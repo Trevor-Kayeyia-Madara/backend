@@ -689,18 +689,27 @@ app.get("/api/chats/:userId", async (req, res) => {
                 let specialistName = "Unknown Specialist";
                 let clientName = "Unknown Client";
 
-                // Fetch specialist name
-                const { data: specialist, error: specialistNameError } = await supabase
-                    .from("users")
-                    .select("full_name")
+                // ✅ Fetch specialist's user_id first from specialist_profile
+                const { data: specialistProfile, error: specialistProfileError } = await supabase
+                    .from("specialist_profile")
+                    .select("user_id")
                     .eq("id", chat.specialist_id)
                     .single();
 
-                if (!specialistNameError && specialist) {
-                    specialistName = specialist.full_name;
+                if (!specialistProfileError && specialistProfile) {
+                    // ✅ Fetch specialist name from users table using user_id
+                    const { data: specialist, error: specialistNameError } = await supabase
+                        .from("users")
+                        .select("full_name")
+                        .eq("id", specialistProfile.user_id)
+                        .single();
+
+                    if (!specialistNameError && specialist) {
+                        specialistName = specialist.full_name;
+                    }
                 }
 
-                // Fetch client user_id from customers table
+                // ✅ Fetch client user_id from customers table
                 const { data: customer, error: customerError } = await supabase
                     .from("customers")
                     .select("user_id")
@@ -708,7 +717,7 @@ app.get("/api/chats/:userId", async (req, res) => {
                     .single();
 
                 if (!customerError && customer) {
-                    // Fetch client full name
+                    // ✅ Fetch client full name from users table
                     const { data: client, error: clientNameError } = await supabase
                         .from("users")
                         .select("full_name")
@@ -720,7 +729,7 @@ app.get("/api/chats/:userId", async (req, res) => {
                     }
                 }
 
-                // Fetch last message for the chat
+                // 🔍 Fetch last message for the chat
                 const { data: lastMessage, error: lastMessageError } = await supabase
                     .from("messages")
                     .select("message, timestamp")
