@@ -794,7 +794,14 @@ app.post("/api/chats/:chatId/messages", async (req, res) => {
     try {
         const { error } = await supabase
             .from("messages")
-            .insert([{ chat_id: chatId, sender_id, message }]);
+            .insert([
+                {
+                    chat_id: chatId,
+                    sender_id,
+                    message,
+                    timestamp: new Date().toISOString(), // ✅ Explicitly setting timestamp
+                },
+            ]);
 
         if (error) {
             console.error("Message Insert Error:", error);
@@ -807,6 +814,7 @@ app.post("/api/chats/:chatId/messages", async (req, res) => {
         res.status(500).json({ error: "Server error while sending message.", details: error.message });
     }
 });
+
 // 4️⃣ Start a New Chat
 app.post("/api/chats",  async (req, res) => {
     const { client_id, specialist_id } = req.body;
