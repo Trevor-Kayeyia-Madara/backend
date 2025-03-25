@@ -646,8 +646,117 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
         res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
     }
 });
-//Chats
+//1️⃣ Get All Chats for a Specialist or Client
+app.get("/api/chats/:userId", authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.userId, 10);
+    console.log(`Fetching chats for user ID: ${userId}`);
 
+    try {
+        const { data: chats, error } = await supabase
+            .from("chats")
+            .select("chat_id, client_id, specialist_id, created_at")
+            .or(`client_id.eq.${userId},specialist_id.eq.${userId}`)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Chats Query Error:", error);
+            return res.status(500).json({ error: "Failed to fetch chats.", details: error.message });
+        }
+
+        res.status(200).json(chats);
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
+    }
+});
+// 2️⃣ Get Messages for a Chat
+app.get("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
+    const chatId = parseInt(req.params.chatId, 10);
+    console.log(`Fetching messages for chat ID: ${chatId}`);
+
+    try {
+        const { data: messages, error } = await supabase
+            .from("messages")
+            .select("message_id, chat_id, sender_id, message, timestamp")
+            .eq("chat_id", chatId)
+            .order("timestamp", { ascending: true });
+
+        if (error) {
+            console.error("Messages Query Error:", error);
+            return res.status(500).json({ error: "Failed to fetch messages.", details: error.message });
+        }
+
+        res.status(200).json(messages);
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Server error while fetching messages.", details: error.message });
+    }
+});
+// 3️⃣ Send a Message
+app.post("/api/chats/:chatId/messages", authenticateToken, async (req, res) => {
+    const chatId = parseInt(req.params.chatId, 10);
+    const { sender_id, message } = req.body;
+
+    if (!sender_id || !message.trim()) {
+        return res.status(400).json({ error: "Sender and message are required." });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from("messages")
+            .insert([{ chat_id: chatId, sender_id, message }]);
+
+        if (error) {
+            console.error("Message Insert Error:", error);
+            return res.status(500).json({ error: "Failed to send message.", details: error.message });
+        }
+
+        res.status(201).json({ success: true, message: "Message sent successfully." });
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Server error while sending message.", details: error.message });
+    }
+});
+
+// 4️⃣ Start a New Chat
+app.post("/api/chats", authenticateToken, async (req, res) => {
+    const { client_id, specialist_id } = req.body;
+
+    if (!client_id || !specialist_id) {
+        return res.status(400).json({ error: "Both client_id and specialist_id are required." });
+    }
+
+    try {
+        // Check if chat already exists
+        const { data: existingChat } = await supabase
+            .from("chats")
+            .select("chat_id")
+            .eq("client_id", client_id)
+            .eq("specialist_id", specialist_id)
+            .maybeSingle();
+
+        if (existingChat) {
+            return res.status(200).json({ chat_id: existingChat.chat_id, message: "Chat already exists." });
+        }
+
+        // Create new chat
+        const { data, error } = await supabase
+            .from("chats")
+            .insert([{ client_id, specialist_id }])
+            .select("chat_id")
+            .single();
+
+        if (error) {
+            console.error("Chat Insert Error:", error);
+            return res.status(500).json({ error: "Failed to create chat.", details: error.message });
+        }
+
+        res.status(201).json({ chat_id: data.chat_id, message: "Chat created successfully." });
+    } catch (error) {
+        console.error("Server Error:", error);
+        res.status(500).json({ error: "Server error while creating chat.", details: error.message });
+    }
+});
 
 
 
