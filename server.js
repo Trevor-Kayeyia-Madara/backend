@@ -652,35 +652,54 @@ app.get("/api/chats/:userId", async (req, res) => {
     console.log(`Fetching chats for user ID: ${userId}`);
 
     try {
-        const { data: chats, error } = await supabase
-            .from("chats")
-            .select("chat_id, client_id, specialist_id, created_at")
-            .or(`client_id.eq.${userId},specialist_id.eq.${userId}`)
-            .order("created_at", { ascending: false });
+        let specialistId = null;
 
-        if (error) {
-            console.error("Chats Query Error:", error);
-            return res.status(500).json({ error: "Failed to fetch chats.", details: error.message });
+        // 🔍 Check if the user is a specialist and get their specialist_id
+        const { data: specialistProfile, error: specialistError } = await supabase
+            .from("specialist_profile")
+            .select("id")
+            .eq("user_id", userId)
+            .single();
+
+        if (specialistError && specialistError.code !== "PGRST116") {
+            console.error("Specialist Profile Query Error:", specialistError);
+            return res.status(500).json({ error: "Error fetching specialist profile.", details: specialistError.message });
         }
 
-        // Fetch additional details (names) for each chat
+        if (specialistProfile) {
+            specialistId = specialistProfile.specialist_id;
+            console.log(`User is a specialist with ID: ${specialistId}`);
+        }
+
+        // 🔍 Query chats where user is either client or specialist
+        const { data: chats, error: chatsError } = await supabase
+            .from("chats")
+            .select("chat_id, client_id, specialist_id, created_at")
+            .or(`client_id.eq.${userId},specialist_id.eq.${specialistId || userId}`)
+            .order("created_at", { ascending: false });
+
+        if (chatsError) {
+            console.error("Chats Query Error:", chatsError);
+            return res.status(500).json({ error: "Failed to fetch chats.", details: chatsError.message });
+        }
+
+        // 🔍 Fetch counterpart names dynamically
         const chatsWithDetails = await Promise.all(
             chats.map(async (chat) => {
                 let counterpartId, counterpartName = "";
 
-                // Determine whether the user is the client or the specialist in the chat
                 if (chat.client_id === userId) {
                     counterpartId = chat.specialist_id;
 
                     // Fetch specialist name
-                    const { data: specialist, error: specialistError } = await supabase
+                    const { data: specialist, error: specialistNameError } = await supabase
                         .from("users")
                         .select("full_name")
                         .eq("id", chat.specialist_id)
                         .single();
 
-                    if (specialistError) {
-                        console.error("Specialist Query Error:", specialistError);
+                    if (specialistNameError) {
+                        console.error("Specialist Name Query Error:", specialistNameError);
                     } else {
                         counterpartName = specialist.full_name;
                     }
@@ -688,14 +707,14 @@ app.get("/api/chats/:userId", async (req, res) => {
                     counterpartId = chat.client_id;
 
                     // Fetch client name
-                    const { data: client, error: clientError } = await supabase
+                    const { data: client, error: clientNameError } = await supabase
                         .from("users")
                         .select("full_name")
                         .eq("id", chat.client_id)
                         .single();
 
-                    if (clientError) {
-                        console.error("Client Query Error:", clientError);
+                    if (clientNameError) {
+                        console.error("Client Name Query Error:", clientNameError);
                     } else {
                         counterpartName = client.full_name;
                     }
@@ -725,6 +744,7 @@ app.get("/api/chats/:userId", async (req, res) => {
         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
     }
 });
+
 
 // 2️⃣ Get Messages for a Chat
 app.get("/api/chats/:chatId/messages", async (req, res) => {
