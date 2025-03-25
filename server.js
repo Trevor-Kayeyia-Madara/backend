@@ -663,9 +663,10 @@ app.get("/api/chats/:userId", async (req, res) => {
             return res.status(500).json({ error: "Failed to fetch chats.", details: error.message });
         }
 
-        // Fetch full_name for each specialist
-        const chatsWithNames = await Promise.all(
+        // Fetch additional data for each chat
+        const chatsWithDetails = await Promise.all(
             chats.map(async (chat) => {
+                // Fetch the specialist's full name
                 if (chat.specialist_profile) {
                     const { data: user, error: userError } = await supabase
                         .from("users")
@@ -679,11 +680,28 @@ app.get("/api/chats/:userId", async (req, res) => {
                         chat.specialist_name = user.full_name;
                     }
                 }
+
+                // Fetch the last message for the chat
+                const { data: lastMessage, error: lastMessageError } = await supabase
+                    .from("messages")
+                    .select("message, timestamp")
+                    .eq("chat_id", chat.chat_id)
+                    .order("timestamp", { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (lastMessageError) {
+                    console.error("Last Message Query Error:", lastMessageError);
+                } else if (lastMessage) {
+                    chat.last_message = lastMessage.message;
+                    chat.last_message_time = lastMessage.timestamp;
+                }
+
                 return chat;
             })
         );
 
-        res.status(200).json(chatsWithNames);
+        res.status(200).json(chatsWithDetails);
     } catch (error) {
         console.error("Server Error:", error);
         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
