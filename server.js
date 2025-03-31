@@ -95,6 +95,7 @@ app.post('/api/signup', async (req, res) => {
     
     if (!full_name || !email || !password || !userType) {
         return res.status(400).json({ message: "All required fields must be filled." });
+        console.log("Received Signup Data:", req.body);
     }
 
     const { data: existingUser, error: existingUserError } = await supabase
@@ -120,7 +121,14 @@ app.post('/api/signup', async (req, res) => {
     }
 
     if (userType === 'customer') {
-        await supabase.from("customers").insert([{ user_id: newUser.id, phone_number, address }]);
+        const { error: customerError } = await supabase
+        .from("customers")
+        .insert([{ user_id: newUser.id, phone_number, address }]);
+
+    if (customerError) {
+        console.error("Customer Insert Error:", customerError);
+        return res.status(500).json({ message: "Error inserting customer data." });
+    };
     } else if (userType === 'specialist') {
         await supabase.from("specialists").insert([{ 
             user_id: newUser.id, 
