@@ -89,10 +89,12 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", userType: user.userType, token, id: user.id });
 });
 
+// User Signup
 app.post('/api/signup', async (req, res) => {
-    const { full_name, email, password, userType, phone_number, address, speciality, service_rates, location } = req.body;
+    const { full_name, email, password, userType, phone_number, address, speciality, service_rates, location, rating, opening_time, closing_time } = req.body;
+    
     if (!full_name || !email || !password || !userType) {
-        return res.status(400).json({ message: "All fields are required." });
+        return res.status(400).json({ message: "All required fields must be filled." });
     }
 
     const { data: existingUser, error: existingUserError } = await supabase
@@ -120,12 +122,21 @@ app.post('/api/signup', async (req, res) => {
     if (userType === 'customer') {
         await supabase.from("customers").insert([{ user_id: newUser.id, phone_number, address }]);
     } else if (userType === 'specialist') {
-        await supabase.from("specialist_profile").insert([{ user_id: newUser.id, speciality, service_rates, location }]);
+        await supabase.from("specialists").insert([{ 
+            user_id: newUser.id, 
+            speciality, 
+            service_rates, 
+            location, 
+            rating, 
+            opening_time, 
+            closing_time 
+        }]);
     }
 
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
     res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
 });
+
 // ✅ Fetch User by ID
 app.get("/api/users/:id", authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id, 10);
