@@ -96,6 +96,7 @@ app.post('/api/signup', async (req, res) => {
     if (!full_name || !email || !password || !userType) {
         return res.status(400).json({ message: "All required fields must be filled." });
         console.log("Received Signup Data:", req.body);
+        console.log("User Type:", userType);
     }
 
     const { data: existingUser, error: existingUserError } = await supabase
@@ -130,7 +131,9 @@ app.post('/api/signup', async (req, res) => {
         return res.status(500).json({ message: "Error inserting customer data." });
     };
     } else if (userType === 'specialist') {
-        await supabase.from("specialists").insert([{ 
+        const { error: specialistError } = await supabase
+        .from("specialists")
+        .insert([{ 
             user_id: newUser.id, 
             speciality, 
             service_rates, 
@@ -139,6 +142,12 @@ app.post('/api/signup', async (req, res) => {
             opening_time, 
             closing_time 
         }]);
+    
+    if (specialistError) {
+        console.error("Specialist Insert Error:", specialistError);
+        return res.status(500).json({ message: "Error inserting specialist data." });
+    }
+    
     }
 
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
