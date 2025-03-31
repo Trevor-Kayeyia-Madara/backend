@@ -93,10 +93,12 @@ app.post("/api/login", async (req, res) => {
 app.post('/api/signup', async (req, res) => {
     const { full_name, email, password, userType, phone_number, address, speciality, service_rates, location, rating, opening_time, closing_time } = req.body;
     
+    console.log("Received Signup Data:", req.body);  // Debug received data
+    console.log("User Type:", userType);  // Ensure userType is correct
+
     if (!full_name || !email || !password || !userType) {
+        console.log("Validation Failed: Missing required fields.");
         return res.status(400).json({ message: "All required fields must be filled." });
-        console.log("Received Signup Data:", req.body);
-        console.log("User Type:", userType);
     }
 
     const { data: existingUser, error: existingUserError } = await supabase
@@ -118,18 +120,21 @@ app.post('/api/signup', async (req, res) => {
         .single();
 
     if (userError) {
-        return res.status(500).json({ message: "Error creating user." });
+        console.error("User Insert Error:", userError);
+        return res.status(500).json({ message: "Error creating user.", error: userError });
     }
+
+    console.log("New User Created:", newUser);
 
     if (userType === 'customer') {
         const { error: customerError } = await supabase
         .from("customers")
         .insert([{ user_id: newUser.id, phone_number, address }]);
 
-    if (customerError) {
-        console.error("Customer Insert Error:", customerError);
-        return res.status(500).json({ message: "Error inserting customer data." });
-    };
+        if (customerError) {
+            console.error("Customer Insert Error:", customerError);
+            return res.status(500).json({ message: "Error inserting customer data.", error: customerError });
+        }
     } else if (userType === 'specialist') {
         const { error: specialistError } = await supabase
         .from("specialists")
@@ -142,12 +147,11 @@ app.post('/api/signup', async (req, res) => {
             opening_time, 
             closing_time 
         }]);
-    
-    if (specialistError) {
-        console.error("Specialist Insert Error:", specialistError);
-        return res.status(500).json({ message: "Error inserting specialist data." });
-    }
-    
+
+        if (specialistError) {
+            console.error("Specialist Insert Error:", specialistError);
+            return res.status(500).json({ message: "Error inserting specialist data.", error: specialistError });
+        }
     }
 
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
