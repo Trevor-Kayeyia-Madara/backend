@@ -89,14 +89,13 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", userType: user.userType, token, id: user.id });
 });
 
-// ✅ User Signup
-app.post("/api/signup", async (req, res) => {
-    const { full_name, email, password, userType } = req.body;
+app.post('/api/signup', async (req, res) => {
+    const { full_name, email, password, userType, phone_number, address, speciality, service_rates, location } = req.body;
     if (!full_name || !email || !password || !userType) {
         return res.status(400).json({ message: "All fields are required." });
     }
 
-    const { data: existingUser } = await supabase
+    const { data: existingUser, error: existingUserError } = await supabase
         .from("users")
         .select("email")
         .eq("email", email)
@@ -106,20 +105,27 @@ app.post("/api/signup", async (req, res) => {
         return res.status(400).json({ message: "Email already registered." });
     }
 
-    const { data: newUser, error } = await supabase
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const { data: newUser, error: userError } = await supabase
         .from("users")
-        .insert([{ full_name, email, password, userType }])
+        .insert([{ full_name, email, password: hashedPassword, userType }])
         .select("id, email, userType")
         .single();
 
-    if (error) {
+    if (userError) {
         return res.status(500).json({ message: "Error creating user." });
+    }
+
+    if (userType === 'customer') {
+        await supabase.from("customers").insert([{ user_id: newUser.id, phone_number, address }]);
+    } else if (userType === 'specialist') {
+        await supabase.from("specialist_profile").insert([{ user_id: newUser.id, speciality, service_rates, location }]);
     }
 
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
     res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
 });
-
 // ✅ Fetch User by ID
 app.get("/api/users/:id", authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.id, 10);
