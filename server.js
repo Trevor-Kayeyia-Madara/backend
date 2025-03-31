@@ -137,7 +137,7 @@ app.post('/api/signup', async (req, res) => {
         }
     } else if (userType === 'specialist') {
         const { error: specialistError } = await supabase
-        .from("specialists")
+        .from("specialist_profile")
         .insert([{ 
             user_id: newUser.id, 
             speciality, 
