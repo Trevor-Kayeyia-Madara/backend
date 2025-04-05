@@ -425,63 +425,139 @@ app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) =
 });
 
 
-// API to create an appointment with validation
 app.post("/api/appointments", async (req, res) => {
     const { customer_id, specialist_id, service_id, date, time, status } = req.body;
 
+    // Validate all required fields
     if (!customer_id || !date || !time || !specialist_id || !service_id || !status) {
-        return res.status(400).json({ error: "All fields are required" });
+        return res.status(400).json({ error: "All fields are required." });
     }
 
-    // Fetch specialist's working hours
-    const { data: specialist, error: specialistError } = await supabase
-        .from("specialist_profile")
-        .select("opening_time, closing_time")
-        .eq("id", specialist_id)
-        .single();
+    try {
+        // Fetch specialist working hours
+        const { data: specialist, error: specialistError } = await supabase
+            .from("specialist_profile")
+            .select("opening_time, closing_time")
+            .eq("id", specialist_id)
+            .single();
 
-    if (specialistError || !specialist) {
-        return res.status(404).json({ error: "Specialist profile not found" });
-    }
-
-    const selectedTime = parseInt(time.split(":")[0]);
-    const openingTime = parseInt(specialist.opening_time.split(":")[0]);
-    const closingTime = parseInt(specialist.closing_time.split(":")[0]);
-
-    if (selectedTime < openingTime || selectedTime >= closingTime) {
-        return res.status(400).json({ error: "Selected time is outside working hours." });
-    }
-
-    // Check for overlapping appointments (2-hour rule)
-    const { data: existingAppointments, error: appointmentError } = await supabase
-        .from("appointments")
-        .select("time")
-        .eq("specialist_id", specialist_id)
-        .eq("date", date);
-
-    if (appointmentError) {
-        return res.status(500).json({ error: "Error checking existing appointments" });
-    }
-
-    for (const appointment of existingAppointments) {
-        const bookedHour = parseInt(appointment.time.split(":")[0]);
-        if (selectedTime >= bookedHour && selectedTime < bookedHour + 2) {
-            return res.status(400).json({ error: "Time slot already booked. Choose another time." });
+        if (specialistError || !specialist) {
+            return res.status(404).json({ error: "Specialist profile not found." });
         }
+
+        // Parse working hours and appointment time
+        const selectedHour = parseInt(time.split(":")[0]);
+        const openingHour = parseInt(specialist.opening_time.split(":")[0]);
+        const closingHour = parseInt(specialist.closing_time.split(":")[0]);
+
+        if (selectedHour < openingHour || selectedHour >= closingHour) {
+            return res.status(400).json({
+                error: `Appointment time must be between ${specialist.opening_time} and ${specialist.closing_time}`,
+            });
+        }
+
+        // Check for appointment clashes
+        const { data: existingAppointment, error: clashError } = await supabase
+            .from("appointments")
+            .select("*")
+            .eq("specialist_id", specialist_id)
+            .eq("date", date)
+            .eq("time", time)
+            .maybeSingle();
+
+        if (clashError) {
+            return res.status(500).json({ error: "Error checking existing appointments." });
+        }
+
+        if (existingAppointment) {
+            return res.status(409).json({ error: "Time slot already booked. Please choose another time." });
+        }
+
+        // Create new appointment
+        const { data: newAppointment, error: insertError } = await supabase
+            .from("appointments")
+            .insert([
+                {
+                    customer_id,
+                    specialist_id,
+                    service_id,
+                    date,
+                    time,
+                    status,
+                },
+            ])
+            .select()
+            .single();
+
+        if (insertError) {
+            return res.status(500).json({ error: "Failed to create appointment." });
+        }
+
+        return res.status(201).json({ appointment: newAppointment });
+
+    } catch (err) {
+        console.error("Appointment error:", err);
+        return res.status(500).json({ error: "Server error while booking appointment." });
     }
-
-    // Insert new appointment
-    const { data, error } = await supabase
-        .from("appointments")
-        .insert([{ customer_id, specialist_id, service_id, date, time, status, created_at: new Date() }])
-        .select();
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
-    }
-
-    res.status(201).json({ message: "Appointment booked successfully", appointment: data[0] });
 });
+
+app.get("/api/specialists/:id/availability", async (req, res) => {
+    const specialist_id = req.params.id;
+    const { date } = req.query;
+
+    if (!date) {
+        return res.status(400).json({ error: "Date is required in the query parameter." });
+    }
+
+    try {
+        // 1. Get specialist working hours
+        const { data: specialist, error: profileError } = await supabase
+            .from("specialist_profile")
+            .select("opening_time, closing_time")
+            .eq("id", specialist_id)
+            .single();
+
+        if (profileError || !specialist) {
+            return res.status(404).json({ error: "Specialist not found." });
+        }
+
+        const openingHour = parseInt(specialist.opening_time.split(":")[0]);
+        const closingHour = parseInt(specialist.closing_time.split(":")[0]);
+
+        // 2. Get all booked times for that date
+        const { data: appointments, error: appointmentError } = await supabase
+            .from("appointments")
+            .select("time")
+            .eq("specialist_id", specialist_id)
+            .eq("date", date);
+
+        if (appointmentError) {
+            return res.status(500).json({ error: "Error fetching appointments." });
+        }
+
+        const bookedTimes = appointments.map(a => a.time.split(":")[0]);
+
+        // 3. Build list of available hours
+        const allSlots = [];
+        for (let hour = openingHour; hour < closingHour; hour++) {
+            const padded = hour.toString().padStart(2, "0") + ":00";
+            if (!bookedTimes.includes(hour.toString())) {
+                allSlots.push(padded);
+            }
+        }
+
+        return res.json({
+            date,
+            specialist_id,
+            available_slots: allSlots,
+        });
+
+    } catch (err) {
+        console.error("Availability check error:", err);
+        return res.status(500).json({ error: "Server error checking availability." });
+    }
+});
+
 
 app.post("/api/reviews", authenticateToken, async (req, res) => {
     const { customer_id, specialist_id, rating, review } = req.body;
