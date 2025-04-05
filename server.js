@@ -9,7 +9,7 @@ const app = express();
 
 // ✅ Configure CORS
 const corsOptions = {
-    origin: ["https://hair-specialist.vercel.app", "http://localhost:5173"], // Allow both production and local frontend
+    origin: ["https://hair-specialist.vercel.app", "http://localhost:5173","http://localhost:5174"], // Allow both production and local frontend
     methods: "GET,POST,PUT,DELETE,PATCH",
     allowedHeaders: "Content-Type,Authorization",
     credentials: true
