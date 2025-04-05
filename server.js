@@ -66,8 +66,6 @@ if (customerError) {
 res.status(200).json({ loggedIn: true, user, customerId: customer.id });
 });
 
-
-
 // ✅ User Login
 app.post("/api/login", async (req, res) => {
     const { email, password } = req.body;
@@ -89,7 +87,7 @@ app.post("/api/login", async (req, res) => {
     res.status(200).json({ message: "Login successful", userType: user.userType, token, id: user.id });
 });
 
-// User Signup
+// ✅ User Signup (with plain password)
 app.post('/api/signup', async (req, res) => {
     const { full_name, email, password, userType, phone_number, address, speciality, service_rates, location, rating, opening_time, closing_time } = req.body;
     
@@ -111,11 +109,10 @@ app.post('/api/signup', async (req, res) => {
         return res.status(400).json({ message: "Email already registered." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
+    // ⛔️ Removed hashedPassword, storing password in plain text
     const { data: newUser, error: userError } = await supabase
         .from("users")
-        .insert([{ full_name, email, password: hashedPassword, userType }])
+        .insert([{ full_name, email, password, userType }])
         .select("id, email, userType")
         .single();
 
@@ -157,6 +154,7 @@ app.post('/api/signup', async (req, res) => {
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
     res.status(201).json({ message: "User registered successfully", token, userType: newUser.userType });
 });
+
 
 // ✅ Fetch User by ID
 app.get("/api/users/:id", authenticateToken, async (req, res) => {
