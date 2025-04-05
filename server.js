@@ -1039,31 +1039,32 @@ app.post("/api/chats",  async (req, res) => {
 //     }
 // });
 app.post("/api/chats/create", async (req, res) => {
-    const { client_id: userId, specialist_id } = req.body;
+    const { client_id, specialist_id } = req.body;
 
-    if (!userId || !specialist_id) {
-        return res.status(400).json({ error: "User ID and Specialist ID are required." });
+    if (!client_id || !specialist_id) {
+        return res.status(400).json({ error: "Client ID and Specialist ID are required." });
     }
 
     try {
-        console.log(`🔍 Getting customer ID for User ID: ${userId}`);
+        console.log(`📥 Received request to create or fetch chat`);
+        console.log(`🔍 Resolving actual customer ID from user ID (client_id): ${client_id}`);
 
-        // 🔄 Step 1: Get actual customer ID
+        // 🔄 Get the actual customer ID from the user_id
         const { data: customer, error: customerError } = await supabase
             .from("customers")
             .select("id")
-            .eq("user_id", userId)
+            .eq("user_id", client_id)
             .single();
 
         if (customerError || !customer) {
-            console.error("❌ Could not find customer for user ID:", customerError);
+            console.error("❌ Could not find customer record:", customerError);
             return res.status(400).json({ error: "Customer not found for given user ID." });
         }
 
         const customerId = customer.id;
-        console.log(`✅ Found customer ID: ${customerId}`);
+        console.log(`✅ Found matching customer ID: ${customerId}`);
 
-        // 🔍 Step 2: Check if chat already exists
+        // 🔍 Check if a chat already exists
         const { data: existingChat, error: existingError } = await supabase
             .from("chats")
             .select("chat_id")
@@ -1072,8 +1073,8 @@ app.post("/api/chats/create", async (req, res) => {
             .single();
 
         if (existingError && existingError.code !== "PGRST116") {
-            console.error("❌ Chat lookup failed:", existingError);
-            return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
+            console.error("❌ Error checking for existing chat:", existingError);
+            return res.status(500).json({ error: "Error checking for existing chat.", details: existingError.message });
         }
 
         let chatId;
@@ -1081,7 +1082,7 @@ app.post("/api/chats/create", async (req, res) => {
             console.log("📎 Chat already exists:", existingChat);
             chatId = existingChat.chat_id;
         } else {
-            // 🔨 Step 3: Create new chat
+            // 🆕 Create new chat
             const { data: newChat, error: createError } = await supabase
                 .from("chats")
                 .insert([{ client_id: customerId, specialist_id }])
@@ -1089,7 +1090,7 @@ app.post("/api/chats/create", async (req, res) => {
                 .single();
 
             if (createError) {
-                console.error("❌ Chat Creation Error:", createError);
+                console.error("❌ Error creating chat:", createError);
                 return res.status(500).json({ error: "Failed to create chat.", details: createError.message });
             }
 
@@ -1097,23 +1098,12 @@ app.post("/api/chats/create", async (req, res) => {
             chatId = newChat.chat_id;
         }
 
-        // 🔄 Step 4: Fetch updated chat list
-        const { data: chats, error: fetchError } = await supabase
-            .from("chats")
-            .select("chat_id, client_id, specialist_id, created_at")
-            .or(`client_id.eq.${customerId},specialist_id.eq.${customerId}`)
-            .order("created_at", { ascending: false });
-
-        if (fetchError) {
-            console.error("❌ Error fetching updated chat list:", fetchError);
-            return res.status(500).json({ error: "Failed to fetch updated chats.", details: fetchError.message });
-        }
-
-        res.status(200).json({ chat_id: chatId, chats });
+        // 🔄 Optionally fetch updated list of chats
+        res.status(200).json({ chat_id: chatId });
 
     } catch (error) {
-        console.error("🔥 Server Error:", error);
-        res.status(500).json({ error: "Server error while creating or fetching chats.", details: error.message });
+        console.error("🔥 Server error:", error);
+        res.status(500).json({ error: "Server error while creating or fetching chat.", details: error.message });
     }
 });
 
