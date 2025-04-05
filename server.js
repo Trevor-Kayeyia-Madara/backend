@@ -614,7 +614,7 @@ app.get("/api/reviews", async (req, res) => {
     try {
         const { data: reviews, error } = await supabase
             .from("reviews")
-            .select("id, customer_id, specialist_id, rating, review, created_at") // ✅ Fix column name
+            .select("*") // ✅ Fix column name
 
             .order("created_at", { ascending: false });
 
