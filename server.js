@@ -875,147 +875,6 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
 //         res.status(500).json({ error: "Server error while fetching chats.", details: error.message });
 //     }
 // });
-app.get("/api/chats/:userId", async (req, res) => {
-    const userId = parseInt(req.params.userId, 10);
-    console.log(`📥 Incoming request to fetch chats for user ID: ${userId}`);
-
-    try {
-        let specialistId = null;
-
-        // 🔍 Check if the user is a specialist
-        const { data: specialistProfile, error: specialistError } = await supabase
-            .from("specialist_profile")
-            .select("id")
-            .eq("user_id", userId)
-            .single();
-
-        if (specialistError && specialistError.code !== "PGRST116") {
-            console.error("❌ Specialist Profile Query Error:", specialistError);
-            return res.status(500).json({
-                error: "Error fetching specialist profile.",
-                details: specialistError.message
-            });
-        }
-
-        if (specialistProfile) {
-            specialistId = specialistProfile.id;
-            console.log(`✅ User is a specialist. Specialist ID: ${specialistId}`);
-        } else {
-            console.log("ℹ️ User is not a specialist.");
-        }
-
-        // 🔍 Fetch chats
-        console.log("🔍 Fetching chats with filter: client_id OR specialist_id");
-        const { data: chats, error: chatsError } = await supabase
-            .from("chats")
-            .select("chat_id, client_id, specialist_id, created_at")
-            .or(`client_id.eq.${userId},specialist_id.eq.${specialistId || userId}`)
-            .order("created_at", { ascending: false });
-
-        if (chatsError) {
-            console.error("❌ Chats Query Error:", chatsError);
-            return res.status(500).json({
-                error: "Failed to fetch chats.",
-                details: chatsError.message
-            });
-        }
-
-        console.log(`✅ Found ${chats.length} chats.`);
-
-        // 🔍 Loop through chats to fetch details
-        const chatsWithDetails = await Promise.all(
-            chats.map(async (chat, index) => {
-                console.log(`\n📦 Processing chat #${index + 1}:`, chat);
-                let specialistName = "Unknown Specialist";
-                let clientName = "Unknown Client";
-
-                // Specialist's user_id
-                const { data: specialistProfile, error: specialistProfileError } = await supabase
-                    .from("specialist_profile")
-                    .select("user_id")
-                    .eq("id", chat.specialist_id)
-                    .single();
-
-                if (specialistProfileError) {
-                    console.warn("⚠️ Error fetching specialist_profile:", specialistProfileError.message);
-                }
-
-                if (specialistProfile) {
-                    const { data: specialist, error: specialistNameError } = await supabase
-                        .from("users")
-                        .select("full_name")
-                        .eq("id", specialistProfile.user_id)
-                        .single();
-
-                    if (specialist) {
-                        specialistName = specialist.full_name;
-                        console.log(`🔹 Specialist name: ${specialistName}`);
-                    } else {
-                        console.warn("⚠️ Could not find specialist user info.");
-                    }
-                }
-
-                // Client's user_id
-                const { data: customer, error: customerError } = await supabase
-                    .from("customers")
-                    .select("user_id")
-                    .eq("id", chat.client_id)
-                    .single();
-
-                if (customerError) {
-                    console.warn("⚠️ Error fetching customer:", customerError.message);
-                }
-
-                if (customer) {
-                    const { data: client, error: clientNameError } = await supabase
-                        .from("users")
-                        .select("full_name")
-                        .eq("id", customer.user_id)
-                        .single();
-
-                    if (client) {
-                        clientName = client.full_name;
-                        console.log(`🔹 Client name: ${clientName}`);
-                    } else {
-                        console.warn("⚠️ Could not find client user info.");
-                    }
-                }
-
-                // Last message
-                const { data: lastMessage, error: lastMessageError } = await supabase
-                    .from("messages")
-                    .select("message, timestamp")
-                    .eq("chat_id", chat.chat_id)
-                    .order("timestamp", { ascending: false })
-                    .limit(1)
-                    .single();
-
-                if (lastMessageError) {
-                    console.warn("⚠️ Error fetching last message:", lastMessageError.message);
-                }
-
-                console.log(`💬 Last message: ${lastMessage?.message || "None"}`);
-
-                return {
-                    ...chat,
-                    specialist_name: specialistName,
-                    client_name: clientName,
-                    last_message: lastMessage?.message || "",
-                    last_message_time: lastMessage?.timestamp || null,
-                };
-            })
-        );
-
-        console.log("✅ Final chat list prepared. Sending response.");
-        res.status(200).json(chatsWithDetails);
-    } catch (error) {
-        console.error("🔥 Server Error:", error);
-        res.status(500).json({
-            error: "Server error while fetching chats.",
-            details: error.message
-        });
-    }
-});
 
 
 
@@ -1116,66 +975,144 @@ app.post("/api/chats",  async (req, res) => {
     }
 });
 // Chat Create
-app.post("/api/chats/create", async (req, res) => {
-    const { client_id, specialist_id } = req.body;
+// app.post("/api/chats/create", async (req, res) => {
+//     const { client_id, specialist_id } = req.body;
 
-    if (!client_id || !specialist_id) {
-        return res.status(400).json({ error: "Client ID and Specialist ID are required." });
+//     if (!client_id || !specialist_id) {
+//         return res.status(400).json({ error: "Client ID and Specialist ID are required." });
+//     }
+
+//     try {
+//         console.log(`Creating or fetching chat between Client ID: ${client_id} and Specialist ID: ${specialist_id}`);
+
+//         // 1️⃣ First, check if the chat already exists
+//         const { data: existingChat, error: existingError } = await supabase
+//             .from("chats")
+//             .select("chat_id")
+//             .eq("client_id", client_id)
+//             .eq("specialist_id", specialist_id)
+//             .single(); // Expecting only one match
+
+//         if (existingError && existingError.code !== "PGRST116") { // Ignore "no rows found" error
+//             console.error("Chat Query Error:", existingError);
+//             return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
+//         }
+
+//         let chatId;
+//         if (existingChat) {
+//             console.log("Chat already exists:", existingChat);
+//             chatId = existingChat.chat_id;
+//         } else {
+//             // 2️⃣ If no chat exists, create a new one
+//             const { data: newChat, error: createError } = await supabase
+//                 .from("chats")
+//                 .insert([{ client_id, specialist_id }])
+//                 .select("chat_id")
+//                 .single();
+
+//             if (createError) {
+//                 console.error("Chat Creation Error:", createError);
+//                 return res.status(500).json({ error: "Failed to create chat.", details: createError.message });
+//             }
+
+//             console.log("New chat created:", newChat);
+//             chatId = newChat.chat_id;
+//         }
+
+//         // 3️⃣ Fetch all chats where client_id matches userId
+//         const { data: chats, error: fetchError } = await supabase
+//             .from("chats")
+//             .select("chat_id, client_id, specialist_id, created_at")
+//             .or(`client_id.eq.${client_id},specialist_id.eq.${client_id}`)
+//             .order("created_at", { ascending: false });
+
+//         if (fetchError) {
+//             console.error("Error fetching updated chat list:", fetchError);
+//             return res.status(500).json({ error: "Failed to fetch updated chats.", details: fetchError.message });
+//         }
+
+//         res.status(200).json({ chat_id: chatId, chats });
+
+//     } catch (error) {
+//         console.error("Server Error:", error);
+//         res.status(500).json({ error: "Server error while creating or fetching chats.", details: error.message });
+//     }
+// });
+app.post("/api/chats/create", async (req, res) => {
+    const { client_id: userId, specialist_id } = req.body;
+
+    if (!userId || !specialist_id) {
+        return res.status(400).json({ error: "User ID and Specialist ID are required." });
     }
 
     try {
-        console.log(`Creating or fetching chat between Client ID: ${client_id} and Specialist ID: ${specialist_id}`);
+        console.log(`🔍 Getting customer ID for User ID: ${userId}`);
 
-        // 1️⃣ First, check if the chat already exists
+        // 🔄 Step 1: Get actual customer ID
+        const { data: customer, error: customerError } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("user_id", userId)
+            .single();
+
+        if (customerError || !customer) {
+            console.error("❌ Could not find customer for user ID:", customerError);
+            return res.status(400).json({ error: "Customer not found for given user ID." });
+        }
+
+        const customerId = customer.id;
+        console.log(`✅ Found customer ID: ${customerId}`);
+
+        // 🔍 Step 2: Check if chat already exists
         const { data: existingChat, error: existingError } = await supabase
             .from("chats")
             .select("chat_id")
-            .eq("client_id", client_id)
+            .eq("client_id", customerId)
             .eq("specialist_id", specialist_id)
-            .single(); // Expecting only one match
+            .single();
 
-        if (existingError && existingError.code !== "PGRST116") { // Ignore "no rows found" error
-            console.error("Chat Query Error:", existingError);
+        if (existingError && existingError.code !== "PGRST116") {
+            console.error("❌ Chat lookup failed:", existingError);
             return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
         }
 
         let chatId;
         if (existingChat) {
-            console.log("Chat already exists:", existingChat);
+            console.log("📎 Chat already exists:", existingChat);
             chatId = existingChat.chat_id;
         } else {
-            // 2️⃣ If no chat exists, create a new one
+            // 🔨 Step 3: Create new chat
             const { data: newChat, error: createError } = await supabase
                 .from("chats")
-                .insert([{ client_id, specialist_id }])
+                .insert([{ client_id: customerId, specialist_id }])
                 .select("chat_id")
                 .single();
 
             if (createError) {
-                console.error("Chat Creation Error:", createError);
+                console.error("❌ Chat Creation Error:", createError);
                 return res.status(500).json({ error: "Failed to create chat.", details: createError.message });
             }
 
-            console.log("New chat created:", newChat);
+            console.log("✅ New chat created:", newChat);
             chatId = newChat.chat_id;
         }
 
-        // 3️⃣ Fetch all chats where client_id matches userId
+        // 🔄 Step 4: Fetch updated chat list
         const { data: chats, error: fetchError } = await supabase
             .from("chats")
             .select("chat_id, client_id, specialist_id, created_at")
-            .or(`client_id.eq.${client_id},specialist_id.eq.${client_id}`)
+            .or(`client_id.eq.${customerId},specialist_id.eq.${customerId}`)
             .order("created_at", { ascending: false });
 
         if (fetchError) {
-            console.error("Error fetching updated chat list:", fetchError);
+            console.error("❌ Error fetching updated chat list:", fetchError);
             return res.status(500).json({ error: "Failed to fetch updated chats.", details: fetchError.message });
         }
 
         res.status(200).json({ chat_id: chatId, chats });
 
     } catch (error) {
-        console.error("Server Error:", error);
+        console.error("🔥 Server Error:", error);
         res.status(500).json({ error: "Server error while creating or fetching chats.", details: error.message });
     }
 });
