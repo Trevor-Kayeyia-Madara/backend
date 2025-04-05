@@ -614,19 +614,28 @@ app.get("/api/reviews", async (req, res) => {
     try {
         const { data: reviews, error } = await supabase
             .from("reviews")
-            .select("*") // ✅ Fix column name
-
+            .select("id, rating, review, created_at, specialist_profile!inner(user_id, users!inner(full_name))")
             .order("created_at", { ascending: false });
 
         if (error) {
             return res.status(500).json({ error: "Error fetching reviews.", details: error.message });
         }
 
-        res.status(200).json(reviews);
+        // Map reviews to include specialist name
+        const formattedReviews = reviews.map(review => ({
+            id: review.id,
+            rating: review.rating,
+            review: review.review,
+            created_at: review.created_at,
+            specialist_name: review.specialist_profile.users.full_name
+        }));
+
+        res.status(200).json(formattedReviews);
     } catch (error) {
         res.status(500).json({ error: "Server error while fetching reviews.", details: error.message });
     }
 });
+
 
 app.get("/api/reviews/:customer_id/:specialist_id", async (req, res) => {
     const { customer_id, specialist_id } = req.params;
