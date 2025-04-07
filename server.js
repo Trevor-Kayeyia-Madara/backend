@@ -200,7 +200,7 @@ app.get("/api/specialists", async (req, res) => {
 
         let query = supabase
             .from("specialist_profile")
-            .select("id, speciality, service_rates, rating, location, created_at, users!inner (full_name)")
+            .select("id, speciality, service_rates, rating, location, opeming_time, closing_time, created_at, users!inner (full_name)")
             .order("id", { ascending: true });
 
         // Apply search filter if present
@@ -221,6 +221,8 @@ app.get("/api/specialists", async (req, res) => {
             service_rates: spec.service_rates,
             rating: spec.rating,
             location: spec.location,
+            opening_time: spec.opening_time,
+            closing_time: spec.closing_time,
             created_at: spec.created_at,
             full_name: spec.users?.full_name
         }));
