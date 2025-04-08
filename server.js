@@ -638,7 +638,7 @@ app.post("/api/appointments", async (req, res) => {
 
     // 7. Insert into Appointment_Period
     const periodInsertResult = await supabase
-  .from("Appointment_Period")
+  .from("appointment_period")
   .insert([
     {
       Specialist_Id: specialist_id,
