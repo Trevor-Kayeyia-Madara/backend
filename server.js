@@ -637,22 +637,25 @@ app.post("/api/appointments", async (req, res) => {
     }
 
     // 7. Insert into Appointment_Period
-    const { error: periodInsertError } = await supabase
-      .from("Appointment_Period")
-      .insert([
-        {
-          Specialist_Id: specialist_id,
-          Start_time: appointmentStart,
-          End_time: appointmentEnd,
-        },
-      ]);
+    const periodInsertResult = await supabase
+  .from("Appointment_Period")
+  .insert([
+    {
+      Specialist_Id: specialist_id,
+      Start_time: appointmentStart,
+      End_time: appointmentEnd,
+    },
+  ]);
 
-    if (periodInsertError) {
-      console.error("Error inserting appointment period:", periodInsertError);
-      return res
-        .status(500)
-        .json({ error: "Failed to save appointment time range." });
-    }
+console.log("Step 7 Insert Result:", periodInsertResult);
+
+if (periodInsertResult.error) {
+  console.error("Error inserting appointment period:", periodInsertResult.error);
+  return res
+    .status(500)
+    .json({ error: "Failed to save appointment time range." });
+}
+
 
     console.log("Appointment successfully created.");
     return res.status(201).json({ appointment: newAppointment });
