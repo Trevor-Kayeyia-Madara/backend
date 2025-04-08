@@ -535,7 +535,7 @@ app.post("/api/appointments", async (req, res) => {
   
       // Fetch all service timings and find match manually
       const { data: allTimings, error: timingError } = await supabase
-        .from("Timing")
+        .from("timing")
         .select("services, hours");
   
       if (timingError || !allTimings || allTimings.length === 0) {
@@ -584,7 +584,7 @@ app.post("/api/appointments", async (req, res) => {
   
       // 5. Check for overlapping appointments in Appointment_Period
       const { data: overlaps, error: overlapError } = await supabase
-        .from("Appointment_Period")
+        .from("appointment_period")
         .select("*")
         .eq("Specialist_Id", specialist_id)
         .filter("Start_time", "<", appointmentEnd.toISOString())
