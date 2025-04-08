@@ -242,7 +242,7 @@ app.get("/api/specialists", async (req, res) => {
     let query = supabase
       .from("specialist_profile")
       .select(
-        "*"
+        "id, speciality, service_rates, rating, location, created_at, users!inner (full_name)"
       )
       .order("id", { ascending: true });
 
@@ -498,26 +498,26 @@ app.post("/api/appointments", async (req, res) => {
   
     console.log("Incoming booking request:", req.body);
   
-    // 1. Basic validation
     if (!customer_id || !date || !time || !specialist_id || !service_id || !status) {
       return res.status(400).json({ error: "All fields are required." });
     }
   
     try {
-      // 2. Fetch specialist profile
+      // 1. Fetch specialist profile
       const { data: specialist, error: specialistError } = await supabase
         .from("specialist_profile")
-        .select("opening_time, closing_time")
+        .select("opening_time, closing_time, speciality")
         .eq("id", specialist_id)
         .single();
   
       if (specialistError || !specialist) {
+        console.log("Specialist profile not found.");
         return res.status(404).json({ error: "Specialist profile not found." });
       }
   
       console.log("Specialist info:", specialist);
   
-      // 3. Time bounds check
+      // 2. Time check
       const selectedHour = parseInt(time.split(":")[0]);
       const openingHour = parseInt(specialist.opening_time.split(":")[0]);
       const closingHour = parseInt(specialist.closing_time.split(":")[0]);
@@ -528,24 +528,40 @@ app.post("/api/appointments", async (req, res) => {
         });
       }
   
-      // 4. Set fixed service duration (in hours)
-      const durationHours = 1; // or customize per service_id if needed
+      // 3. Match specialist's service duration
+      const specialistSpeciality = specialist.speciality.trim().toLowerCase();
+      const { data: allTimings, error: timingError } = await supabase
+        .from("timing")
+        .select("services, hours");
   
-      // 5. Calculate appointment start & end time
+      if (timingError || !allTimings || allTimings.length === 0) {
+        return res.status(400).json({ error: "Service timings not available." });
+      }
+  
+      const matchedTiming = allTimings.find(
+        (t) => t.services?.trim().toLowerCase() === specialistSpeciality
+      );
+  
+      if (!matchedTiming) {
+        return res.status(400).json({ error: "Service timing not found for this speciality." });
+      }
+  
+      const durationHours = parseFloat(matchedTiming.hours);
+  
+      // 4. Calculate time range
       const appointmentStart = new Date(`${date}T${time}`);
       const appointmentEnd = new Date(appointmentStart.getTime() + durationHours * 60 * 60 * 1000);
   
       console.log("Calculated Start Time:", appointmentStart.toISOString());
       console.log("Calculated End Time:", appointmentEnd.toISOString());
   
-      // 6. Check for overlapping appointments in the "appointments" table
+      // 5. Check overlaps
       const { data: overlaps, error: overlapError } = await supabase
-        .from("appointments")
-        .select("id, date, time, specialist_id")
-        .eq("specialist_id", specialist_id)
-        .or(
-          `and(date.eq.${date},time.gte.${appointmentStart.toISOString()},time.lt.${appointmentEnd.toISOString()})`
-        );
+        .from("appointment_period")
+        .select("Start_time, End_time")
+        .eq("Specialist_Id", specialist_id)
+        .lt("Start_time", appointmentEnd.toISOString())
+        .gt("End_time", appointmentStart.toISOString());
   
       if (overlapError) {
         console.error("Error checking overlaps:", overlapError);
@@ -553,12 +569,19 @@ app.post("/api/appointments", async (req, res) => {
       }
   
       if (overlaps.length > 0) {
+        console.log("Booking rejected due to overlap.");
+        const conflicts = overlaps.map((slot) => ({
+          start: new Date(slot.Start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          end: new Date(slot.End_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }));
+  
         return res.status(409).json({
           error: "Time slot overlaps with an existing appointment.",
+          conflicts,
         });
       }
   
-      // 7. Insert the new appointment
+      // 6. Insert appointment
       const { data: newAppointment, error: insertError } = await supabase
         .from("appointments")
         .insert([
@@ -577,6 +600,22 @@ app.post("/api/appointments", async (req, res) => {
       if (insertError) {
         console.error("Error inserting appointment:", insertError);
         return res.status(500).json({ error: "Failed to create appointment." });
+      }
+  
+      // 7. Insert appointment period
+      const { error: periodError } = await supabase
+        .from("appointment_period")
+        .insert([
+          {
+            Specialist_Id: specialist_id,
+            Start_time: appointmentStart,
+            End_time: appointmentEnd,
+          },
+        ]);
+  
+      if (periodError) {
+        console.error("Error inserting appointment period:", periodError);
+        return res.status(500).json({ error: "Failed to save appointment time range." });
       }
   
       console.log("Appointment successfully created.");
