@@ -549,6 +549,7 @@ app.post("/api/appointments", async (req, res) => {
       console.log("No service timings found.");
       return res.status(400).json({ error: "Service timings not available." });
     }
+    console.log("All timings from DB:", allTimings);
 
     // Match by trimming and lowercasing both sides
     const matchedTiming = allTimings.find(
@@ -563,7 +564,7 @@ app.post("/api/appointments", async (req, res) => {
     
     const durationHours = parseFloat(matchedTiming.hours);
     console.log("Service duration (in hours):", durationHours);
-    
+
     // 4. Calculate appointment start and end time
     const appointmentStart = new Date(`${date}T${time}`);
     const appointmentEnd = new Date(
