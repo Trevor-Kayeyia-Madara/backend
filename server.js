@@ -93,14 +93,12 @@ app.post("/api/login", async (req, res) => {
   }
 
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: "2h" });
-  res
-    .status(200)
-    .json({
-      message: "Login successful",
-      userType: user.userType,
-      token,
-      id: user.id,
-    });
+  res.status(200).json({
+    message: "Login successful",
+    userType: user.userType,
+    token,
+    id: user.id,
+  });
 });
 
 // ✅ User Signup (with plain password)
@@ -163,12 +161,10 @@ app.post("/api/signup", async (req, res) => {
 
     if (customerError) {
       console.error("Customer Insert Error:", customerError);
-      return res
-        .status(500)
-        .json({
-          message: "Error inserting customer data.",
-          error: customerError,
-        });
+      return res.status(500).json({
+        message: "Error inserting customer data.",
+        error: customerError,
+      });
     }
   } else if (userType === "specialist") {
     const { error: specialistError } = await supabase
@@ -187,23 +183,19 @@ app.post("/api/signup", async (req, res) => {
 
     if (specialistError) {
       console.error("Specialist Insert Error:", specialistError);
-      return res
-        .status(500)
-        .json({
-          message: "Error inserting specialist data.",
-          error: specialistError,
-        });
+      return res.status(500).json({
+        message: "Error inserting specialist data.",
+        error: specialistError,
+      });
     }
   }
 
   const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: "2h" });
-  res
-    .status(201)
-    .json({
-      message: "User registered successfully",
-      token,
-      userType: newUser.userType,
-    });
+  res.status(201).json({
+    message: "User registered successfully",
+    token,
+    userType: newUser.userType,
+  });
 });
 
 // ✅ Fetch User by ID
@@ -471,12 +463,10 @@ app.get(
         .order("time", { ascending: true });
 
       if (appointmentsError) {
-        return res
-          .status(500)
-          .json({
-            message: "Error fetching appointments.",
-            error: appointmentsError,
-          });
+        return res.status(500).json({
+          message: "Error fetching appointments.",
+          error: appointmentsError,
+        });
       }
 
       if (!appointments || appointments.length === 0) {
@@ -504,122 +494,155 @@ app.get(
 );
 
 app.post("/api/appointments", async (req, res) => {
-    const { customer_id, specialist_id, service_id, date, time, status } = req.body;
+  const { customer_id, specialist_id, service_id, date, time, status } =
+    req.body;
 
-    console.log("Incoming booking request:", req.body);
+  console.log("Incoming booking request:", req.body);
 
-    if (!customer_id || !date || !time || !specialist_id || !service_id || !status) {
-        return res.status(400).json({ error: "All fields are required." });
+  if (
+    !customer_id ||
+    !date ||
+    !time ||
+    !specialist_id ||
+    !service_id ||
+    !status
+  ) {
+    return res.status(400).json({ error: "All fields are required." });
+  }
+
+  try {
+    // 1. Fetch specialist profile to get working hours and speciality
+    const { data: specialist, error: specialistError } = await supabase
+      .from("specialist_profile")
+      .select("opening_time, closing_time, speciality")
+      .eq("id", specialist_id)
+      .single();
+
+    if (specialistError || !specialist) {
+      console.log("Specialist profile not found.");
+      return res.status(404).json({ error: "Specialist profile not found." });
     }
 
-    try {
-        // 1. Fetch specialist profile to get working hours and speciality
-        const { data: specialist, error: specialistError } = await supabase
-            .from("specialist_profile")
-            .select("opening_time, closing_time, speciality")
-            .eq("id", specialist_id)
-            .single();
+    console.log("Specialist info:", specialist);
 
-        if (specialistError || !specialist) {
-            console.log("Specialist profile not found.");
-            return res.status(404).json({ error: "Specialist profile not found." });
-        }
+    // 2. Check if time is within working hours
+    const selectedHour = parseInt(time.split(":")[0]);
+    const openingHour = parseInt(specialist.opening_time.split(":")[0]);
+    const closingHour = parseInt(specialist.closing_time.split(":")[0]);
 
-        console.log("Specialist info:", specialist);
-
-        // 2. Check if time is within working hours
-        const selectedHour = parseInt(time.split(":")[0]);
-        const openingHour = parseInt(specialist.opening_time.split(":")[0]);
-        const closingHour = parseInt(specialist.closing_time.split(":")[0]);
-
-        if (selectedHour < openingHour || selectedHour >= closingHour) {
-            return res.status(400).json({
-                error: `Appointment time must be between ${specialist.opening_time} and ${specialist.closing_time}`,
-            });
-        }
-
-        // 3. Fetch duration of service based on specialist's speciality
-        const { data: timing, error: timingError } = await supabase
-            .from("Timing")
-            .select("hours")
-            .eq("services", specialist.speciality)
-            .single();
-
-        if (timingError || !timing) {
-            console.log("Service timing not found for this speciality.");
-            return res.status(400).json({ error: "Service timing not found." });
-        }
-
-        const durationHours = parseFloat(timing.hours);
-        console.log("Service duration (in hours):", durationHours);
-
-        // 4. Calculate appointment start and end time
-        const appointmentStart = new Date(`${date}T${time}`);
-        const appointmentEnd = new Date(appointmentStart.getTime() + durationHours * 60 * 60 * 1000);
-
-        console.log("Calculated Start Time:", appointmentStart.toISOString());
-        console.log("Calculated End Time:", appointmentEnd.toISOString());
-
-        // 5. Check for overlapping appointments in Appointment_Period
-        const { data: overlaps, error: overlapError } = await supabase
-            .from("Appointment_Period")
-            .select("*")
-            .eq("Specialist_Id", specialist_id)
-            .filter("Start_time", "<", appointmentEnd.toISOString())
-            .filter("End_time", ">", appointmentStart.toISOString());
-
-        if (overlapError) {
-            console.error("Error checking overlaps:", overlapError);
-            return res.status(500).json({ error: "Error checking existing appointments." });
-        }
-
-        if (overlaps.length > 0) {
-            console.log("Booking rejected due to overlap.");
-            return res.status(409).json({ error: "Time slot overlaps with an existing appointment." });
-        }
-
-        // 6. Insert into appointments
-        const { data: newAppointment, error: insertError } = await supabase
-            .from("appointments")
-            .insert([{
-                customer_id,
-                specialist_id,
-                service_id,
-                date,
-                time,
-                status,
-            }])
-            .select()
-            .single();
-
-        if (insertError) {
-            console.error("Error inserting appointment:", insertError);
-            return res.status(500).json({ error: "Failed to create appointment." });
-        }
-
-        // 7. Insert into Appointment_Period
-        const { error: periodInsertError } = await supabase
-            .from("Appointment_Period")
-            .insert([{
-                Specialist_Id: specialist_id,
-                Start_time: appointmentStart.toISOString(),
-                End_time: appointmentEnd.toISOString(),
-            }]);
-
-        if (periodInsertError) {
-            console.error("Error inserting appointment period:", periodInsertError);
-            return res.status(500).json({ error: "Failed to save appointment time range." });
-        }
-
-        console.log("Appointment successfully created.");
-        return res.status(201).json({ appointment: newAppointment });
-
-    } catch (err) {
-        console.error("Unhandled booking error:", err);
-        return res.status(500).json({ error: "Server error while booking appointment." });
+    if (selectedHour < openingHour || selectedHour >= closingHour) {
+      return res.status(400).json({
+        error: `Appointment time must be between ${specialist.opening_time} and ${specialist.closing_time}`,
+      });
     }
+
+    // 3. Fetch duration of service based on specialist's speciality
+    // Normalize speciality for matching
+    const specialistSpeciality = specialist.speciality.trim().toLowerCase();
+
+    // Fetch all service timings and find match manually
+    const { data: allTimings, error: timingError } = await supabase
+      .from("Timing")
+      .select("services, hours");
+
+    if (timingError || !allTimings || allTimings.length === 0) {
+      console.log("No service timings found.");
+      return res.status(400).json({ error: "Service timings not available." });
+    }
+
+    // Match by trimming and lowercasing both sides
+    const matchedTiming = allTimings.find(
+      (t) =>
+        t.services && t.services.trim().toLowerCase() === specialistSpeciality
+    );
+
+    if (!matchedTiming) {
+        console.log("Service timing not found for this speciality.");
+        return res.status(400).json({ error: "Service timing not found for this speciality." });
+    }
+    
+    const durationHours = parseFloat(matchedTiming.hours);
+    console.log("Service duration (in hours):", durationHours);
+    
+    // 4. Calculate appointment start and end time
+    const appointmentStart = new Date(`${date}T${time}`);
+    const appointmentEnd = new Date(
+      appointmentStart.getTime() + durationHours * 60 * 60 * 1000
+    );
+
+    console.log("Calculated Start Time:", appointmentStart.toISOString());
+    console.log("Calculated End Time:", appointmentEnd.toISOString());
+
+    // 5. Check for overlapping appointments in Appointment_Period
+    const { data: overlaps, error: overlapError } = await supabase
+      .from("Appointment_Period")
+      .select("*")
+      .eq("Specialist_Id", specialist_id)
+      .filter("Start_time", "<", appointmentEnd.toISOString())
+      .filter("End_time", ">", appointmentStart.toISOString());
+
+    if (overlapError) {
+      console.error("Error checking overlaps:", overlapError);
+      return res
+        .status(500)
+        .json({ error: "Error checking existing appointments." });
+    }
+
+    if (overlaps.length > 0) {
+      console.log("Booking rejected due to overlap.");
+      return res
+        .status(409)
+        .json({ error: "Time slot overlaps with an existing appointment." });
+    }
+
+    // 6. Insert into appointments
+    const { data: newAppointment, error: insertError } = await supabase
+      .from("appointments")
+      .insert([
+        {
+          customer_id,
+          specialist_id,
+          service_id,
+          date,
+          time,
+          status,
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error inserting appointment:", insertError);
+      return res.status(500).json({ error: "Failed to create appointment." });
+    }
+
+    // 7. Insert into Appointment_Period
+    const { error: periodInsertError } = await supabase
+      .from("Appointment_Period")
+      .insert([
+        {
+          Specialist_Id: specialist_id,
+          Start_time: appointmentStart.toISOString(),
+          End_time: appointmentEnd.toISOString(),
+        },
+      ]);
+
+    if (periodInsertError) {
+      console.error("Error inserting appointment period:", periodInsertError);
+      return res
+        .status(500)
+        .json({ error: "Failed to save appointment time range." });
+    }
+
+    console.log("Appointment successfully created.");
+    return res.status(201).json({ appointment: newAppointment });
+  } catch (err) {
+    console.error("Unhandled booking error:", err);
+    return res
+      .status(500)
+      .json({ error: "Server error while booking appointment." });
+  }
 });
-
 
 app.get("/api/specialists/:id/availability", async (req, res) => {
   const specialist_id = req.params.id;
@@ -702,12 +725,10 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
       .single();
 
     if (reviewError) {
-      return res
-        .status(500)
-        .json({
-          error: "Failed to save review.",
-          details: reviewError.message,
-        });
+      return res.status(500).json({
+        error: "Failed to save review.",
+        details: reviewError.message,
+      });
     }
 
     // ✅ Calculate new average rating for the specialist
@@ -717,12 +738,10 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
       .eq("specialist_id", specialist_id);
 
     if (fetchError) {
-      return res
-        .status(500)
-        .json({
-          error: "Failed to calculate rating.",
-          details: fetchError.message,
-        });
+      return res.status(500).json({
+        error: "Failed to calculate rating.",
+        details: fetchError.message,
+      });
     }
 
     const totalRatings = reviews.length;
@@ -736,24 +755,20 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
       .eq("id", specialist_id);
 
     if (updateError) {
-      return res
-        .status(500)
-        .json({
-          error: "Failed to update specialist rating.",
-          details: updateError.message,
-        });
+      return res.status(500).json({
+        error: "Failed to update specialist rating.",
+        details: updateError.message,
+      });
     }
 
     res
       .status(201)
       .json({ message: "Review submitted successfully!", review: reviewData });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: "Server error submitting review.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error submitting review.",
+      details: error.message,
+    });
   }
 });
 
@@ -783,12 +798,10 @@ app.get("/api/reviews", async (req, res) => {
 
     res.status(200).json(formattedReviews);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: "Server error while fetching reviews.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error while fetching reviews.",
+      details: error.message,
+    });
   }
 });
 
@@ -864,12 +877,10 @@ app.get(
 
       if (appointmentError) {
         console.error("Appointments Query Error:", appointmentError);
-        return res
-          .status(500)
-          .json({
-            error: "Failed to fetch appointments.",
-            details: appointmentError.message,
-          });
+        return res.status(500).json({
+          error: "Failed to fetch appointments.",
+          details: appointmentError.message,
+        });
       }
 
       if (!appointments || appointments.length === 0) {
@@ -887,12 +898,10 @@ app.get(
 
       if (specialistError) {
         console.error("Specialists Query Error:", specialistError);
-        return res
-          .status(500)
-          .json({
-            error: "Failed to fetch specialists.",
-            details: specialistError.message,
-          });
+        return res.status(500).json({
+          error: "Failed to fetch specialists.",
+          details: specialistError.message,
+        });
       }
 
       // Extract user IDs
@@ -906,12 +915,10 @@ app.get(
 
       if (userError) {
         console.error("Users Query Error:", userError);
-        return res
-          .status(500)
-          .json({
-            error: "Failed to fetch user details.",
-            details: userError.message,
-          });
+        return res.status(500).json({
+          error: "Failed to fetch user details.",
+          details: userError.message,
+        });
       }
 
       // Map data together
@@ -941,12 +948,10 @@ app.get(
       res.status(200).json(response);
     } catch (error) {
       console.error("Server Error:", error);
-      res
-        .status(500)
-        .json({
-          error: "Server error while fetching appointments.",
-          details: error.message,
-        });
+      res.status(500).json({
+        error: "Server error while fetching appointments.",
+        details: error.message,
+      });
     }
   }
 );
@@ -1229,12 +1234,10 @@ app.get("/api/chats/:chatId/messages", async (req, res) => {
     res.status(200).json(messages);
   } catch (error) {
     console.error("Server Error:", error);
-    res
-      .status(500)
-      .json({
-        error: "Server error while fetching messages.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error while fetching messages.",
+      details: error.message,
+    });
   }
 });
 // 3️⃣ Send a Message
@@ -1268,12 +1271,10 @@ app.post("/api/chats/:chatId/messages", async (req, res) => {
       .json({ success: true, message: "Message sent successfully." });
   } catch (error) {
     console.error("Server Error:", error);
-    res
-      .status(500)
-      .json({
-        error: "Server error while sending message.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error while sending message.",
+      details: error.message,
+    });
   }
 });
 
@@ -1297,12 +1298,10 @@ app.post("/api/chats", async (req, res) => {
       .maybeSingle();
 
     if (existingChat) {
-      return res
-        .status(200)
-        .json({
-          chat_id: existingChat.chat_id,
-          message: "Chat already exists.",
-        });
+      return res.status(200).json({
+        chat_id: existingChat.chat_id,
+        message: "Chat already exists.",
+      });
     }
 
     // Create new chat
@@ -1324,12 +1323,10 @@ app.post("/api/chats", async (req, res) => {
       .json({ chat_id: data.chat_id, message: "Chat created successfully." });
   } catch (error) {
     console.error("Server Error:", error);
-    res
-      .status(500)
-      .json({
-        error: "Server error while creating chat.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error while creating chat.",
+      details: error.message,
+    });
   }
 });
 // Chat Create
@@ -1438,12 +1435,10 @@ app.post("/api/chats/create", async (req, res) => {
 
     if (existingError && existingError.code !== "PGRST116") {
       console.error("❌ Error checking for existing chat:", existingError);
-      return res
-        .status(500)
-        .json({
-          error: "Error checking for existing chat.",
-          details: existingError.message,
-        });
+      return res.status(500).json({
+        error: "Error checking for existing chat.",
+        details: existingError.message,
+      });
     }
 
     let chatId;
@@ -1460,12 +1455,10 @@ app.post("/api/chats/create", async (req, res) => {
 
       if (createError) {
         console.error("❌ Error creating chat:", createError);
-        return res
-          .status(500)
-          .json({
-            error: "Failed to create chat.",
-            details: createError.message,
-          });
+        return res.status(500).json({
+          error: "Failed to create chat.",
+          details: createError.message,
+        });
       }
 
       console.log("✅ New chat created:", newChat);
@@ -1476,12 +1469,10 @@ app.post("/api/chats/create", async (req, res) => {
     res.status(200).json({ chat_id: chatId });
   } catch (error) {
     console.error("🔥 Server error:", error);
-    res
-      .status(500)
-      .json({
-        error: "Server error while creating or fetching chat.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Server error while creating or fetching chat.",
+      details: error.message,
+    });
   }
 });
 
