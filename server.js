@@ -242,7 +242,7 @@ app.get("/api/specialists", async (req, res) => {
     let query = supabase
       .from("specialist_profile")
       .select(
-        "id, speciality, service_rates, rating, location, created_at, users!inner (full_name)"
+        "*"
       )
       .order("id", { ascending: true });
 
