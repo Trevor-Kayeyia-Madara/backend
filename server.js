@@ -540,6 +540,8 @@ app.post("/api/appointments", async (req, res) => {
   
       if (timingError || !allTimings || allTimings.length === 0) {
         console.log("No service timings found.");
+        console.log("All timings from DB:", allTimings);
+
         return res.status(400).json({ error: "Service timings not available." });
       }
   
