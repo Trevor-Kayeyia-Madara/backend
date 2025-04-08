@@ -542,7 +542,7 @@ app.post("/api/appointments", async (req, res) => {
         const { data: timing, error: timingError } = await supabase
             .from("Timing")
             .select("hours")
-            .eq("Services", specialist.speciality)
+            .eq("services", specialist.speciality)
             .single();
 
         if (timingError || !timing) {
