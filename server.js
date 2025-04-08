@@ -642,8 +642,8 @@ app.post("/api/appointments", async (req, res) => {
       .insert([
         {
           Specialist_Id: specialist_id,
-          Start_time: appointmentStart.toISOString(),
-          End_time: appointmentEnd.toISOString(),
+          Start_time: appointmentStart,
+          End_time: appointmentEnd,
         },
       ]);
 
