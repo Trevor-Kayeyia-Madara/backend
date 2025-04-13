@@ -372,18 +372,18 @@ app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) =
     }
 
     try {
-        // Step 1: Get Specialist ID from specialist_profile
-        const { data: specialist, error: specialistError } = await supabase
-            .from("specialist_profile")
-            .select("id")
-            .eq("user_id", userId)
-            .single();
+           // Step 1: Get Customer ID from customers table using user_id
+           const { data: customer, error: customerError } = await supabase
+           .from("customers")
+           .select("id")
+           .eq("user_id", userId)
+           .single();
 
-        if (specialistError || !specialist) {
-            return res.status(404).json({ message: "Specialist profile not found." });
-        }
+       if (customerError || !customer) {
+           return res.status(404).json({ message: "Customer profile not found." });
+       }
 
-        const specialistId = specialist.id;
+       const customerId = customer.id;
 
         // Step 2: Fetch Appointments using Specialist ID
         const { data: appointments, error: appointmentsError } = await supabase
@@ -396,7 +396,7 @@ app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) =
                 customers!inner(user_id, users(full_name)),
                 services(name)
             `)
-            .eq("specialist_id", specialistId)
+            .eq("customer_id", customerId)
             .order("date", { ascending: true })
             .order("time", { ascending: true });
 
