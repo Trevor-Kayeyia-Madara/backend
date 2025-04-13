@@ -694,16 +694,16 @@ app.put("/api/reviews", authenticateToken, async (req, res) => {
     }
 });
 
-app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) => {
-    const customerId = parseInt(req.params.id, 10);
-    console.log(`Fetching appointments for customer ID: ${customerId}`); // ✅ Log request
+app.get("/api/users/:id/appointments", authenticateToken, async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    console.log(`Fetching appointments for user ID: ${userId}`); // ✅ Log request
 
     try {
-        // Fetch appointments for the given customer
+        // Fetch appointments for the given user
         const { data: appointments, error: appointmentError } = await supabase
             .from("appointments")
             .select("id, date, time, status, specialist_id")
-            .eq("customer_id", customerId)
+            .eq("user_id", userId)  // Changed from customer_id to user_id
             .order("date", { ascending: false });
 
         if (appointmentError) {
@@ -771,6 +771,8 @@ app.get("/api/customers/:id/appointments", authenticateToken, async (req, res) =
         res.status(500).json({ error: "Server error while fetching appointments.", details: error.message });
     }
 });
+
+
 //1️⃣ Get All Chats for a Specialist or Client
 app.get("/api/chats/:userId", async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
