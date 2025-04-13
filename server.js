@@ -427,10 +427,10 @@ app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) =
 
 
 app.post("/api/appointments", async (req, res) => {
-    const { customer_id, specialist_id, service_id, date, time, status } = req.body;
+    const { user_id, specialist_id, service_id, date, time, status } = req.body;
 
     // Validate all required fields
-    if (!customer_id || !date || !time || !specialist_id || !service_id || !status) {
+    if (!user_id || !date || !time || !specialist_id || !service_id || !status) {
         return res.status(400).json({ error: "All fields are required." });
     }
 
@@ -479,7 +479,7 @@ app.post("/api/appointments", async (req, res) => {
             .from("appointments")
             .insert([
                 {
-                    customer_id,
+                    user_id,
                     specialist_id,
                     service_id,
                     date,
@@ -501,6 +501,7 @@ app.post("/api/appointments", async (req, res) => {
         return res.status(500).json({ error: "Server error while booking appointment." });
     }
 });
+
 
 app.get("/api/specialists/:id/availability", async (req, res) => {
     const specialist_id = req.params.id;
