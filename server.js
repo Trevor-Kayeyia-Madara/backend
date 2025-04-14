@@ -1283,24 +1283,39 @@ app.post("/api/chats",  async (req, res) => {
 });
 // Chat Create
 app.post("/api/chats/create", async (req, res) => {
-    const { client_id, specialist_id } = req.body;
+    const { client_id: clientUserId, specialist_id } = req.body;
 
-    if (!client_id || !specialist_id) {
-        return res.status(400).json({ error: "Client ID and Specialist ID are required." });
+    if (!clientUserId || !specialist_id) {
+        return res.status(400).json({ error: "Client user ID and Specialist ID are required." });
     }
 
     try {
-        console.log(`Creating or fetching chat between Client ID: ${client_id} and Specialist ID: ${specialist_id}`);
+        console.log(`Creating or fetching chat between Client User ID: ${clientUserId} and Specialist ID: ${specialist_id}`);
 
-        // 1️⃣ First, check if the chat already exists
+        // 🔍 Get the actual client_id (from customers table using user_id)
+        const { data: customerProfile, error: customerError } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("user_id", clientUserId)
+            .single();
+
+        if (customerError || !customerProfile) {
+            console.error("Client ID Lookup Error:", customerError || "Client not found");
+            return res.status(400).json({ error: "Invalid client user ID — no matching client found." });
+        }
+
+        const clientId = customerProfile.id;
+        console.log(`Resolved client ID: ${clientId}`);
+
+        // 1️⃣ Check if the chat already exists
         const { data: existingChat, error: existingError } = await supabase
             .from("chats")
             .select("chat_id")
-            .eq("client_id", client_id)
+            .eq("client_id", clientId)
             .eq("specialist_id", specialist_id)
-            .single(); // Expecting only one match
+            .single();
 
-        if (existingError && existingError.code !== "PGRST116") { // Ignore "no rows found" error
+        if (existingError && existingError.code !== "PGRST116") {
             console.error("Chat Query Error:", existingError);
             return res.status(500).json({ error: "Failed to check existing chats.", details: existingError.message });
         }
@@ -1310,10 +1325,10 @@ app.post("/api/chats/create", async (req, res) => {
             console.log("Chat already exists:", existingChat);
             chatId = existingChat.chat_id;
         } else {
-            // 2️⃣ If no chat exists, create a new one
+            // 2️⃣ Create a new chat
             const { data: newChat, error: createError } = await supabase
                 .from("chats")
-                .insert([{ client_id, specialist_id }])
+                .insert([{ client_id: clientId, specialist_id }])
                 .select("chat_id")
                 .single();
 
@@ -1326,11 +1341,11 @@ app.post("/api/chats/create", async (req, res) => {
             chatId = newChat.chat_id;
         }
 
-        // 3️⃣ Fetch all chats where client_id matches userId
+        // 3️⃣ Fetch all chats involving this client
         const { data: chats, error: fetchError } = await supabase
             .from("chats")
             .select("chat_id, client_id, specialist_id, created_at")
-            .or(`client_id.eq.${client_id},specialist_id.eq.${client_id}`)
+            .or(`client_id.eq.${clientId},specialist_id.eq.${clientId}`)
             .order("created_at", { ascending: false });
 
         if (fetchError) {
