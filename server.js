@@ -701,6 +701,7 @@ app.get("/api/specialists/:id/availability", async (req, res) => {
 
 app.post("/api/reviews", authenticateToken, async (req, res) => {
     const { userId, specialist_id, rating, review } = req.body;
+    console.log("Incoming review POST body:", req.body);
 
     // 🔒 Validate inputs
     if (!userId || !specialist_id || !rating || !review) {
