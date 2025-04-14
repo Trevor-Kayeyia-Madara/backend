@@ -700,72 +700,56 @@ app.get("/api/specialists/:id/availability", async (req, res) => {
 
 
 app.post("/api/reviews", authenticateToken, async (req, res) => {
-    const { userId, specialist_id, rating, review } = req.body;
-    console.log("Incoming review POST body:", req.body);
-
+    const { customer_id, specialist_id, rating, review } = req.body;
+  
     // 🔒 Validate inputs
-    if (!userId || !specialist_id || !rating || !review) {
-        return res.status(400).json({ error: "All fields are required." });
+    if (!customer_id || !specialist_id || !rating || !review) {
+      return res.status(400).json({ error: "All fields are required." });
     }
     if (rating < 1.0 || rating > 5.0) {
-        return res.status(400).json({ error: "Rating must be between 1.0 and 5.0" });
+      return res.status(400).json({ error: "Rating must be between 1.0 and 5.0" });
     }
-
+  
     try {
-        // 🔍 Look up customer_id using userId
-        const { data: customer, error: customerError } = await supabase
-            .from("customers")
-            .select("id")
-            .eq("user_id", userId)
-            .single();
-
-        if (customerError || !customer) {
-            console.error("Customer lookup failed:", customerError || "Not found");
-            return res.status(400).json({ error: "Invalid user ID – no matching customer found." });
-        }
-
-        const customer_id = customer.id;
-
-        // ✅ Insert review
-        const { data: reviewData, error: reviewError } = await supabase
-            .from("reviews")
-            .insert([{ customer_id, specialist_id, rating, review }])
-            .select()
-            .single();
-
-        if (reviewError) {
-            return res.status(500).json({ error: "Failed to save review.", details: reviewError.message });
-        }
-
-        // 🔄 Recalculate and update specialist's average rating
-        const { data: reviews, error: fetchError } = await supabase
-            .from("reviews")
-            .select("rating")
-            .eq("specialist_id", specialist_id);
-
-        if (fetchError) {
-            return res.status(500).json({ error: "Failed to calculate rating.", details: fetchError.message });
-        }
-
-        const totalRatings = reviews.length;
-        const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings;
-
-        const { error: updateError } = await supabase
-            .from("specialist_profile")
-            .update({ rating: avgRating })
-            .eq("id", specialist_id);
-
-        if (updateError) {
-            return res.status(500).json({ error: "Failed to update specialist rating.", details: updateError.message });
-        }
-
-        res.status(201).json({ message: "Review submitted successfully!", review: reviewData });
+      // ✅ Insert review directly
+      const { data: reviewData, error: reviewError } = await supabase
+        .from("reviews")
+        .insert([{ customer_id, specialist_id, rating, review }])
+        .select()
+        .single();
+  
+      if (reviewError) {
+        return res.status(500).json({ error: "Failed to save review.", details: reviewError.message });
+      }
+  
+      // 🔄 Update specialist rating
+      const { data: reviews, error: fetchError } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("specialist_id", specialist_id);
+  
+      if (fetchError) {
+        return res.status(500).json({ error: "Failed to calculate rating.", details: fetchError.message });
+      }
+  
+      const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+  
+      const { error: updateError } = await supabase
+        .from("specialist_profile")
+        .update({ rating: avgRating })
+        .eq("id", specialist_id);
+  
+      if (updateError) {
+        return res.status(500).json({ error: "Failed to update specialist rating.", details: updateError.message });
+      }
+  
+      res.status(201).json({ message: "Review submitted successfully!", review: reviewData });
     } catch (error) {
-        console.error("Server Error:", error);
-        res.status(500).json({ error: "Server error submitting review.", details: error.message });
+      console.error("Server Error:", error);
+      res.status(500).json({ error: "Server error submitting review.", details: error.message });
     }
-});
-
+  });
+  
 
 app.get("/api/reviews", async (req, res) => {
     try {
