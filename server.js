@@ -408,23 +408,6 @@ app.get("/api/appointments/user/:user_id", authenticateToken, async (req, res) =
             return res.status(404).json({ message: "No appointments found for this specialist." });
         }
 
-<<<<<<< HEAD
-        // Step 3: Format response
-        const formattedAppointments = appointments.map(appointment => ({
-            id: appointment.id,
-            customer_name: appointment.customers?.users?.full_name || "Unknown",
-            service: appointment.services?.name || "Unknown",
-            date: appointment.date,
-            time: appointment.time,
-            status: appointment.status
-        }));
-
-        return res.status(200).json(formattedAppointments);
-    } catch (error) {
-        console.error("Server Error:", error);
-        return res.status(500).json({ message: "Internal Server Error." });
-    }
-=======
       // Step 3: Format response
       const formattedAppointments = appointments.map((appointment) => ({
         id: appointment.id,
@@ -675,7 +658,6 @@ app.get("/api/specialists/:id/availability", async (req, res) => {
       .status(500)
       .json({ error: "Server error checking availability." });
   }
->>>>>>> parent of 474a9aa (v8)
 });
 
 
