@@ -700,20 +700,35 @@ app.get("/api/specialists/:id/availability", async (req, res) => {
 
 
 app.post("/api/reviews", authenticateToken, async (req, res) => {
-    const { customer_id, specialist_id, rating, review } = req.body;
+    const { userId, specialist_id, rating, review } = req.body;
 
-    if (!customer_id|| !specialist_id || !rating || !review) {
+    // 🔒 Validate inputs
+    if (!userId || !specialist_id || !rating || !review) {
         return res.status(400).json({ error: "All fields are required." });
     }
-    if (!rating || rating < 1.0 || rating > 5.0) {
+    if (rating < 1.0 || rating > 5.0) {
         return res.status(400).json({ error: "Rating must be between 1.0 and 5.0" });
     }
-    
+
     try {
-        // ✅ Insert review into Supabase (Use correct column name `review`)
+        // 🔍 Look up customer_id using userId
+        const { data: customer, error: customerError } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("user_id", userId)
+            .single();
+
+        if (customerError || !customer) {
+            console.error("Customer lookup failed:", customerError || "Not found");
+            return res.status(400).json({ error: "Invalid user ID – no matching customer found." });
+        }
+
+        const customer_id = customer.id;
+
+        // ✅ Insert review
         const { data: reviewData, error: reviewError } = await supabase
             .from("reviews")
-            .insert([{ customer_id, specialist_id, rating, review }]) // ✅ Fix column name here
+            .insert([{ customer_id, specialist_id, rating, review }])
             .select()
             .single();
 
@@ -721,7 +736,7 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
             return res.status(500).json({ error: "Failed to save review.", details: reviewError.message });
         }
 
-        // ✅ Calculate new average rating for the specialist
+        // 🔄 Recalculate and update specialist's average rating
         const { data: reviews, error: fetchError } = await supabase
             .from("reviews")
             .select("rating")
@@ -734,7 +749,6 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
         const totalRatings = reviews.length;
         const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / totalRatings;
 
-        // ✅ Update specialist rating
         const { error: updateError } = await supabase
             .from("specialist_profile")
             .update({ rating: avgRating })
@@ -746,9 +760,11 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
 
         res.status(201).json({ message: "Review submitted successfully!", review: reviewData });
     } catch (error) {
+        console.error("Server Error:", error);
         res.status(500).json({ error: "Server error submitting review.", details: error.message });
     }
 });
+
 
 app.get("/api/reviews", async (req, res) => {
     try {
