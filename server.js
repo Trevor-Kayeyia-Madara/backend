@@ -700,10 +700,10 @@ app.get("/api/specialists/:id/availability", async (req, res) => {
 
 
 app.post("/api/reviews", authenticateToken, async (req, res) => {
-    const { customer_id, specialist_id, rating, review } = req.body;
+    const { user_id, specialist_id, rating, review } = req.body;
   
     // 🔒 Validate inputs
-    if (!customer_id || !specialist_id || !rating || !review) {
+    if (!user_id || !specialist_id || !rating || !review) {
       return res.status(400).json({ error: "All fields are required." });
     }
     if (rating < 1.0 || rating > 5.0) {
@@ -714,7 +714,7 @@ app.post("/api/reviews", authenticateToken, async (req, res) => {
       // ✅ Insert review directly
       const { data: reviewData, error: reviewError } = await supabase
         .from("reviews")
-        .insert([{ customer_id, specialist_id, rating, review }])
+        .insert([{ user_id, specialist_id, rating, review }])
         .select()
         .single();
   
